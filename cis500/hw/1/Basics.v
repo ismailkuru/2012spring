@@ -1034,17 +1034,30 @@ Proof.
   Case "n = 0".
       simpl. reflexivity.
   Case "n = S n'".
-      simpl. rewrite -> IHn'. reflexivity. Qed.
+      simpl. rewrite -> IHn'. reflexivity. 
+Qed.
 
 Theorem plus_n_Sm : forall n m : nat, 
   S (n + m) = n + (S m).
 Proof. 
-  (* FILL IN HERE *) Admitted.
+  intros n m.
+  induction n as [| n'].
+  Case "n = 0".
+      simpl. reflexivity.
+  Case "n = S n'".
+      simpl. rewrite -> IHn'. reflexivity.
+Qed.
 
 Theorem plus_comm : forall n m : nat,
   n + m = m + n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m.
+  induction n as [| n'].
+  Case "n = 0".
+      simpl. rewrite -> plus_0_r. reflexivity.
+  Case "n = S n'".
+      rewrite <- plus_n_Sm. rewrite <- IHn'. simpl. reflexivity.
+Qed.
 (** [] *)
 
 Fixpoint double (n:nat) :=
@@ -1056,14 +1069,27 @@ Fixpoint double (n:nat) :=
 (** **** Exercise: 2 stars (double_plus) *)
 Lemma double_plus : forall n, double n = n + n .
 Proof.  
-  (* FILL IN HERE *) Admitted.
+  intros n.
+  induction n as [| n'].
+  Case "n = 0".
+      simpl. reflexivity.
+  Case "n = S n'".
+      simpl. rewrite <- plus_n_Sm. rewrite -> IHn'. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star (destruct_induction) *)
 (** Briefly explain the difference between the tactics
     [destruct] and [induction].  
 
-(* FILL IN HERE *)
+[destruct] will separate the variable into several cases, based
+on its definition cases. After one case is proved, it will 
+disappear.
+
+[induction] will perform induction analysis on the variable
+according to its inductive definition. And after one case is
+proved, it will become a inductive hypothesis when you try to
+prove the next case.
 
 *)
 (** [] *)
@@ -1183,7 +1209,23 @@ Proof.
 
 (** Theorem: Addition is commutative.
  
-    Proof: (* FILL IN HERE *)
+    Proof: We need to show for any natural number [n] and [m],
+    we have n + m = m + n.
+           
+    By induction on [n].
+    - First, suppose [n = 0]. We must show
+        0 + m = m + 0.
+      By the definition of [+], this follows from
+        m = m + 0.
+      We can prove it from Theorem [plus_0_r].
+    - Next, suppose [n = S n'], where 
+        n' + m = m + n'.
+      We must show
+        S n' + m = m + S n'.
+      By Theorem plus_n_Sm and definition of [+], 
+      this follows from
+        S (n' + m) = S (m + n'),
+      which is immediate from the induction hypothesis.
 []
 *)
 
@@ -1194,15 +1236,31 @@ Proof.
  
     Theorem: [true = beq_nat n n] for any [n].
     
-    Proof: (* FILL IN HERE *)
+    Proof: By induction on [n].
+    - First, suppose [n = 0]. We must show
+        true = beq_nat 0 0.
+      This follows directly from the definition of [beq_nat].
+    - Next, suppose [n = S n'], where
+        true = beq_nat n' n'.
+      We must show
+        true = beq_nat (S n') (S n').
+      By the definition of [beq_nat], thie follows from
+        true = beq_nat n' n',
+      which is immediate from the induction hypothesis.
 []
  *)
-
+Print beq_nat.
 (** **** Exercise: 1 star, optional (beq_nat_refl) *)
 Theorem beq_nat_refl : forall n : nat,
   true = beq_nat n n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n.
+  induction n as [| n'].
+  Case "n = 0".
+      reflexivity.
+  Case "n = S n'".
+      simpl. rewrite <- IHn'. reflexivity.
+Qed.
 (** [] *)
 
 
@@ -1289,8 +1347,15 @@ Proof.
 Theorem plus_swap : forall n m p : nat, 
   n + (m + p) = m + (n + p).
 Proof.
-  (* FILL IN HERE *) Admitted.
-
+  intros n m p.
+  rewrite -> plus_assoc.
+  rewrite -> plus_assoc.
+  assert (H: n + m = m + n).
+      Case "Proof of assertion".
+      rewrite -> plus_comm. reflexivity.
+  rewrite -> H. reflexivity.
+Qed.
+ 
 
 (** Now prove commutativity of multiplication.  (You will probably
     need to define and prove a separate subsidiary theorem to be used
@@ -1300,7 +1365,8 @@ Proof.
 Theorem mult_comm : forall m n : nat,
  m * n = n * m.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros m n.
+  
 (** [] *)
 
 (** **** Exercise: 2 stars, optional (evenb_n__oddb_Sn) *)
