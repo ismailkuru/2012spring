@@ -1702,13 +1702,72 @@ Qed.
     in our definition.*)
 
 (* c *)
-Fixpoint normalize (b:bin) : bin :=
-  match b with
-    | BO => BO
-    | BT b' => BT (normalize b')
-    | BOT b'' => BOT (normalize b'')
+
+Import Coq.Program.Basics.
+
+Fixpoint n_aux (pre tmp: bin->bin) (rest:bin) : bin :=
+  match rest with
+    | BO     => pre BO
+    | BT r'  => n_aux pre (compose tmp BT) r'
+    | BOT r' => n_aux (compose pre (compose tmp BOT)) id r'
   end.
 
+
+Fixpoint normalize (b:bin) : bin :=
+  n_aux id id b.
+
+Eval compute in (normalize (BT (BOT (BT (BT BO))))).
+(*
+Theorem ntb_assoc : forall n:nat,
+  nat_to_bin (n + n) = normalize (BT (nat_to_bin n)).
+Proof.
+  intros n.
+  induction n as [| n'].
+  Case "n = 0".
+      simpl. reflexivity.
+  admit.
+Qed.
+
+Theorem btn_assoc : forall b:bin,
+  bin_to_nat (BT b) = bin_to_nat b + bin_to_nat b.
+Proof.
+  admit.
+Qed.
+
+Theorem n_bt_n : forall b:bin,
+  normalize (BT (normalize b)) = normalize (BT b).
+Proof.
+  intros b.
+  induction b as [| b' | b''].
+  Case "b = 0".
+      reflexivity.
+  Case "b = BT b'".
+     inversion IHb'. 
+
+
+Theorem btn_ntb_bt : forall b:bin,
+  nat_to_bin (bin_to_nat (BT b)) = normalize (BT (nat_to_bin (bin_to_nat b))).
+Proof.
+  intros b.
+  induction b as [| b' | b''].
+  Case "0".
+      simpl. reflexivity.
+  Case "BT".
+      rewrite -> IHb'. 
+*)
+
+Theorem con_equiv_r' : forall b:bin,
+  nat_to_bin (bin_to_nat b) = normalize b.
+Proof.
+  intros b.
+  remember (normalize b).
+  destruct (normalize b).
+  
+    induction b as [| b' | b''].
+  Case "b = 0".
+      simpl. reflexivity.
+  Case "b = BT b'".
+      auto.
 (** **** Exercise: 2 stars, optional (decreasing) *)
 (** The requirement that some argument to each function be
     "decreasing" is a fundamental feature of Coq's design: In
@@ -1722,6 +1781,12 @@ Fixpoint normalize (b:bin) : bin :=
     _does_ terminate on all inputs, but that Coq will _not_ accept
     because of this restriction. *)
 
-(* FILL IN HERE *)
+(*
+Fixpoint ppp (n m:nat) : nat :=
+  match m with
+    | O => n
+    | S m' => S (ppp m' n)
+  end.
+*)
 (** [] *)
 
