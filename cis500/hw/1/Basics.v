@@ -1702,72 +1702,146 @@ Qed.
     in our definition.*)
 
 (* c *)
-
-Import Coq.Program.Basics.
-
-Fixpoint n_aux (pre tmp: bin->bin) (rest:bin) : bin :=
-  match rest with
-    | BO     => pre BO
-    | BT r'  => n_aux pre (compose tmp BT) r'
-    | BOT r' => n_aux (compose pre (compose tmp BOT)) id r'
+Fixpoint normalize (b:bin) : bin :=
+  match b with
+    |BO => BO
+    |BT b1 => match (normalize b1) with
+                |BO => BO
+                |b1' => BT b1'
+              end
+    |BOT b2 => match (normalize b2) with
+                |BO => BOT BO
+                |b2' => BOT b2'
+               end
+  end.
+(*
+Definition norm_tail (b:bin) : bin :=
+  match b with
+    |BO => BO
+    |BT BO => BO
+    |_ => b
   end.
 
-
 Fixpoint normalize (b:bin) : bin :=
-  n_aux id id b.
-
-Eval compute in (normalize (BT (BOT (BT (BT BO))))).
-(*
-Theorem ntb_assoc : forall n:nat,
-  nat_to_bin (n + n) = normalize (BT (nat_to_bin n)).
-Proof.
-  intros n.
-  induction n as [| n'].
-  Case "n = 0".
-      simpl. reflexivity.
-  admit.
-Qed.
-
-Theorem btn_assoc : forall b:bin,
-  bin_to_nat (BT b) = bin_to_nat b + bin_to_nat b.
-Proof.
-  admit.
-Qed.
-
-Theorem n_bt_n : forall b:bin,
-  normalize (BT (normalize b)) = normalize (BT b).
-Proof.
-  intros b.
-  induction b as [| b' | b''].
-  Case "b = 0".
-      reflexivity.
-  Case "b = BT b'".
-     inversion IHb'. 
-
-
-Theorem btn_ntb_bt : forall b:bin,
-  nat_to_bin (bin_to_nat (BT b)) = normalize (BT (nat_to_bin (bin_to_nat b))).
-Proof.
-  intros b.
-  induction b as [| b' | b''].
-  Case "0".
-      simpl. reflexivity.
-  Case "BT".
-      rewrite -> IHb'. 
+  match b with
+    |BO => BO
+    |BT BO => BO
+    |BOT BO => BOT BO
+    |BT b' => norm_tail (BT (normalize b'))
+    |BOT b'' => BOT (normalize b'')
+  end.
 *)
+Eval simpl in (normalize (BOT (BT (BT (BT BO))))).
 
 Theorem con_equiv_r' : forall b:bin,
   nat_to_bin (bin_to_nat b) = normalize b.
 Proof.
   intros b.
-  remember (normalize b).
-  destruct (normalize b).
-  
-    induction b as [| b' | b''].
-  Case "b = 0".
+  induction b as [| b1 | b2].
+  Case "b = BO".
       simpl. reflexivity.
-  Case "b = BT b'".
-      auto.
+  Case "b = BT b1".
+      simpl. rewrite -> plus_0_r.     
+(*
+      
+Lemma btn_btn : forall b:bin,
+  bin_to_nat b = 0 -> bin_to_nat (BT b) = bin_to_nat b.
+Admitted.
+
+Lemma btn_norm : forall b:bin,
+  bin_to_nat b = 0 -> normalize (BT b) = normalize b.
+Admitted.
+
+Lemma btn_btn_ntb : forall (b:bin) (n:nat),
+  bin_to_nat b = S n -> BT (nat_to_bin (bin_to_nat b)) = nat_to_bin (bin_to_nat (BT b)).
+Admitted.
+
+Lemma btn_norm' : forall (b:bin) (n:nat),
+  bin_to_nat b = S n -> normalize (BT b) = BT (normalize b).
+Admitted.
+
+Lemma btn_btn_bot : forall b:bin,
+  bin_to_nat b = 0 -> bin_to_nat (BOT b) = S (bin_to_nat b).
+Admitted.
+
+Lemma btn_norm_bot : forall b:bin,
+  bin_to_nat b = 0 -> normalize (BOT b) = inc_bin (normalize b).
+Admitted.
+
+Lemma btn_btn_ntb_bot : forall (b:bin) (n:nat),
+  bin_to_nat b = S n -> BOT (nat_to_bin (bin_to_nat b)) = nat_to_bin (bin_to_nat (BOT b)).
+Admitted.
+
+Lemma btn_norm'_bot : forall (b:bin) (n:nat),
+  bin_to_nat b = S n -> normalize (BOT b) = BOT (normalize b).
+Admitted.
+
+Theorem con_equiv_r' : forall b:bin,
+  nat_to_bin (bin_to_nat b) = normalize b.
+Proof.
+  intros b.
+  induction b as [| b1 | b2].
+  Case "".
+      reflexivity.
+  Case "".
+      remember (bin_to_nat b1).
+      destruct n as [| n'].
+      SCase "n = 0".
+          symmetry in Heqn.
+          inversion Heqn.
+          inversion Heqn.
+          apply btn_btn in Heqn.
+          rewrite -> Heqn.
+          apply btn_norm in H0.
+          rewrite -> H0.
+          rewrite <- IHb1.
+          rewrite -> H1.
+          reflexivity.
+     SCase "n = S n'".
+          symmetry in Heqn.
+          inversion Heqn.
+          inversion Heqn.
+          apply btn_btn_ntb in Heqn.
+          apply btn_norm' in H0.
+          rewrite <- Heqn.
+          rewrite -> H0.
+          rewrite <- H1 in IHb1.
+          rewrite -> IHb1.
+          reflexivity.
+  Case "b = BOT b2".
+      remember (bin_to_nat b2).
+      destruct n as [| n'].
+          SCase "n = 0".
+              symmetry in Heqn.
+              inversion Heqn.
+              inversion Heqn.
+              apply btn_btn_bot in Heqn.
+              rewrite -> Heqn.
+              apply btn_norm_bot in H0.
+              rewrite -> H0.
+              rewrite <- IHb2.
+              rewrite -> H1.
+              reflexivity.              
+          SCase "n = S n'".
+              symmetry in Heqn.
+              inversion Heqn.
+              inversion Heqn.
+              apply btn_btn_ntb_bot in Heqn.
+              apply btn_norm'_bot in H0.
+              rewrite <- Heqn.
+              rewrite -> H0.
+              rewrite <- H1 in IHb1.
+              rewrite -> IHb1.
+              reflexivity.
+
+
+  remember (bin_to_nat b).
+  destruct n as [| n1].
+  Case "n = 0".
+      
+Qed.
+*)
+
 (** **** Exercise: 2 stars, optional (decreasing) *)
 (** The requirement that some argument to each function be
     "decreasing" is a fundamental feature of Coq's design: In
