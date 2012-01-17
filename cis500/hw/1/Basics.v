@@ -1702,36 +1702,61 @@ Qed.
     in our definition.*)
 
 (* c *)
+
+Definition normed_double (b:bin) : bin :=
+  match b with
+    |BO => BO
+    |b' => BT b'
+  end.
+
+Fixpoint normalize (b:bin) : bin :=
+  match b with
+    |BO => BO
+    |BT b1 => normed_double (normalize b1)
+    |BOT b2 => inc_bin (normed_double (normalize b2))
+  end.
+
+(* old normalize
 Fixpoint normalize (b:bin) : bin :=
   match b with
     |BO => BO
     |BT b1 => match (normalize b1) with
-                |BO => BO
+                |BO  => BO
                 |b1' => BT b1'
               end
     |BOT b2 => match (normalize b2) with
                 |BO => BOT BO
                 |b2' => BOT b2'
                end
-  end.
-(*
-Definition norm_tail (b:bin) : bin :=
-  match b with
-    |BO => BO
-    |BT BO => BO
-    |_ => b
-  end.
+  end.*)
 
-Fixpoint normalize (b:bin) : bin :=
-  match b with
-    |BO => BO
-    |BT BO => BO
-    |BOT BO => BOT BO
-    |BT b' => norm_tail (BT (normalize b'))
-    |BOT b'' => BOT (normalize b'')
-  end.
-*)
-Eval simpl in (normalize (BOT (BT (BT (BT BO))))).
+Eval simpl in (normalize (BOT (BT (BOT (BT BO))))).
+
+Theorem inc_double_bin : forall b:bin,
+  inc_bin ( inc_bin (normed_double b)) = normed_double (inc_bin b).
+Proof.
+  intros b.
+  destruct b as [| b1 | b2].
+  Case "b = BO".
+      simpl. reflexivity.
+  Case "b = BT b1".
+      simpl. reflexivity.
+  Case "b = BOT b2".
+      simpl. reflexivity.
+Qed.
+
+Theorem double_bin_nat : forall n:nat,
+  nat_to_bin (double n) = normed_double (nat_to_bin n).
+Proof.
+  intros n.
+  induction n as [| n'].
+  Case "n = 0".
+      simpl. reflexivity.
+  Case "n = S n'".
+      simpl. rewrite -> IHn'. rewrite -> inc_double_bin. reflexivity.
+Qed.
+      
+
 
 Theorem con_equiv_r' : forall b:bin,
   nat_to_bin (bin_to_nat b) = normalize b.
@@ -1741,106 +1766,15 @@ Proof.
   Case "b = BO".
       simpl. reflexivity.
   Case "b = BT b1".
-      simpl. rewrite -> plus_0_r.     
-(*
-      
-Lemma btn_btn : forall b:bin,
-  bin_to_nat b = 0 -> bin_to_nat (BT b) = bin_to_nat b.
-Admitted.
-
-Lemma btn_norm : forall b:bin,
-  bin_to_nat b = 0 -> normalize (BT b) = normalize b.
-Admitted.
-
-Lemma btn_btn_ntb : forall (b:bin) (n:nat),
-  bin_to_nat b = S n -> BT (nat_to_bin (bin_to_nat b)) = nat_to_bin (bin_to_nat (BT b)).
-Admitted.
-
-Lemma btn_norm' : forall (b:bin) (n:nat),
-  bin_to_nat b = S n -> normalize (BT b) = BT (normalize b).
-Admitted.
-
-Lemma btn_btn_bot : forall b:bin,
-  bin_to_nat b = 0 -> bin_to_nat (BOT b) = S (bin_to_nat b).
-Admitted.
-
-Lemma btn_norm_bot : forall b:bin,
-  bin_to_nat b = 0 -> normalize (BOT b) = inc_bin (normalize b).
-Admitted.
-
-Lemma btn_btn_ntb_bot : forall (b:bin) (n:nat),
-  bin_to_nat b = S n -> BOT (nat_to_bin (bin_to_nat b)) = nat_to_bin (bin_to_nat (BOT b)).
-Admitted.
-
-Lemma btn_norm'_bot : forall (b:bin) (n:nat),
-  bin_to_nat b = S n -> normalize (BOT b) = BOT (normalize b).
-Admitted.
-
-Theorem con_equiv_r' : forall b:bin,
-  nat_to_bin (bin_to_nat b) = normalize b.
-Proof.
-  intros b.
-  induction b as [| b1 | b2].
-  Case "".
-      reflexivity.
-  Case "".
-      remember (bin_to_nat b1).
-      destruct n as [| n'].
-      SCase "n = 0".
-          symmetry in Heqn.
-          inversion Heqn.
-          inversion Heqn.
-          apply btn_btn in Heqn.
-          rewrite -> Heqn.
-          apply btn_norm in H0.
-          rewrite -> H0.
-          rewrite <- IHb1.
-          rewrite -> H1.
-          reflexivity.
-     SCase "n = S n'".
-          symmetry in Heqn.
-          inversion Heqn.
-          inversion Heqn.
-          apply btn_btn_ntb in Heqn.
-          apply btn_norm' in H0.
-          rewrite <- Heqn.
-          rewrite -> H0.
-          rewrite <- H1 in IHb1.
-          rewrite -> IHb1.
-          reflexivity.
+      simpl. rewrite -> plus_0_r. rewrite <- double_plus.
+      rewrite -> double_bin_nat. rewrite -> IHb1. reflexivity.
   Case "b = BOT b2".
-      remember (bin_to_nat b2).
-      destruct n as [| n'].
-          SCase "n = 0".
-              symmetry in Heqn.
-              inversion Heqn.
-              inversion Heqn.
-              apply btn_btn_bot in Heqn.
-              rewrite -> Heqn.
-              apply btn_norm_bot in H0.
-              rewrite -> H0.
-              rewrite <- IHb2.
-              rewrite -> H1.
-              reflexivity.              
-          SCase "n = S n'".
-              symmetry in Heqn.
-              inversion Heqn.
-              inversion Heqn.
-              apply btn_btn_ntb_bot in Heqn.
-              apply btn_norm'_bot in H0.
-              rewrite <- Heqn.
-              rewrite -> H0.
-              rewrite <- H1 in IHb1.
-              rewrite -> IHb1.
-              reflexivity.
-
-
-  remember (bin_to_nat b).
-  destruct n as [| n1].
-  Case "n = 0".
-      
+      simpl. rewrite -> plus_0_r. rewrite <- double_plus.
+      rewrite -> double_bin_nat. rewrite -> IHb2. reflexivity.
 Qed.
-*)
+(** Thanks to Catalin Hritcu and Prof. Pierce, you both help me
+    a lot.*) 
+
 
 (** **** Exercise: 2 stars, optional (decreasing) *)
 (** The requirement that some argument to each function be
@@ -1856,11 +1790,12 @@ Qed.
     because of this restriction. *)
 
 (*
-Fixpoint ppp (n m:nat) : nat :=
+Fixpoint ppp (n m:nat) {struct m} : nat :=
   match m with
     | O => n
     | S m' => S (ppp m' n)
   end.
 *)
+
 (** [] *)
 
