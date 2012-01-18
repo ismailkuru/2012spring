@@ -1082,14 +1082,15 @@ Qed.
 (** Briefly explain the difference between the tactics
     [destruct] and [induction].  
 
+Answer:
+
 [destruct] will separate the variable into several cases, based
 on its definition cases. After one case is proved, it will 
 disappear.
 
 [induction] will perform induction analysis on the variable
-according to its inductive definition. And after one case is
-proved, it will become a inductive hypothesis when you try to
-prove the next case.
+according to its inductive definition. For all cases except
+the base ones, a hypothesis is provided to help the proof.
 
 *)
 (** [] *)
@@ -1605,14 +1606,9 @@ Proof.
       simpl. reflexivity.
   Case "b = BOT b''".
       simpl. rewrite -> plus_0_r. rewrite -> plus_0_r.
-      assert (H: S (S (bin_to_nat b'' + bin_to_nat b'')) =
-                 S (bin_to_nat b'') + S (bin_to_nat b'')).
-      SCase "Proof of assertion".
-          simpl. 
-          rewrite -> plus_comm with (n:=bin_to_nat b'') (m:=S (bin_to_nat b'')).
-          simpl.
-          reflexivity.
-      rewrite -> H. rewrite -> IHb''. reflexivity.
+      rewrite -> IHb''. simpl. rewrite -> plus_comm.
+      simpl.
+      reflexivity.
 Qed.
 (** [] *)
 
@@ -1692,17 +1688,18 @@ Proof.
 Qed.
 (** Explain: From the incomplete proof shown above, we can see
     that while proving the first assertion, we have a equation
-    [BO = BT BO] to prove. This is undefined in our binary number
+    [BO = BT BO] to prove. This is impossible in our binary number
     definition, although it is straightforward when we see it,
     twice of zero is zero.
 
-    So unless we add a theorem of [BO = BT BO], we cannot prove
+    So unless we add a theorem of [BO = BT BO], which is not 
+    reasonable, or remove the [BT] somehow, we cannot prove
     the conversion round trip starting from binary numbers. 
-    Because any binary number will not have a unique representation
+    Because any binary number does not have a unique representation
     in our definition.*)
 
 (* c *)
-
+(** double binary numbers that are normalized.*)
 Definition normed_double (b:bin) : bin :=
   match b with
     |BO => BO
@@ -1716,7 +1713,7 @@ Fixpoint normalize (b:bin) : bin :=
     |BOT b2 => inc_bin (normed_double (normalize b2))
   end.
 
-(* old normalize
+(** old normalize
 Fixpoint normalize (b:bin) : bin :=
   match b with
     |BO => BO
@@ -1728,10 +1725,11 @@ Fixpoint normalize (b:bin) : bin :=
                 |BO => BOT BO
                 |b2' => BOT b2'
                end
-  end.*)
-
+  end.
+*)
 Eval simpl in (normalize (BOT (BT (BOT (BT BO))))).
 
+(** The exchange of position of inc_bin and normed_double.*)
 Theorem inc_double_bin : forall b:bin,
   inc_bin ( inc_bin (normed_double b)) = normed_double (inc_bin b).
 Proof.
@@ -1745,6 +1743,8 @@ Proof.
       simpl. reflexivity.
 Qed.
 
+(** double in natural numbers has the same effect of normed_double
+    in binary numbers*)
 Theorem double_bin_nat : forall n:nat,
   nat_to_bin (double n) = normed_double (nat_to_bin n).
 Proof.
@@ -1755,9 +1755,8 @@ Proof.
   Case "n = S n'".
       simpl. rewrite -> IHn'. rewrite -> inc_double_bin. reflexivity.
 Qed.
-      
-
-
+ 
+(** second try of proving conversion round trip*)
 Theorem con_equiv_r' : forall b:bin,
   nat_to_bin (bin_to_nat b) = normalize b.
 Proof.
@@ -1773,7 +1772,7 @@ Proof.
       rewrite -> double_bin_nat. rewrite -> IHb2. reflexivity.
 Qed.
 (** Thanks to Catalin Hritcu and Prof. Pierce, you both help me
-    a lot.*) 
+    a lot while I was trying to prove the theorem.*) 
 
 
 (** **** Exercise: 2 stars, optional (decreasing) *)
