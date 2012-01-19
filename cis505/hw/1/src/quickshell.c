@@ -9,25 +9,114 @@
 //       Revision:  none
 //       Compiler:  gcc
 // 
-//         Author:  Zi Yan (yz), zi.yan@gmx.com
+//         Author:  Zi Yan (yz), yanzi@cis.upenn.edu
 //        Company:  
 // 
 // ===================================================================
 #include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <unistd.h>
+
+void signalarm();
+pid_t child;
+static state = 0;
 
 int main()
 {
-    //1. read name of file to run
-    //2. check existance of the file
-    //3. fork 
-    //4a. for child, exec the file
-    //4b. for father, set alarm(10), and start = times(NULL)
-    //5. for father, wait(&status)
-    //6. for father, after wait, end = times(NULL) to get child's ending time,
-    //   cancel alarm promptly by using alarm(0)
-    //7. calculate elapse = end - start, print message according to elapse
-    //8. go back to 1
-    //
-    //For alarm signal, once it is goes off, kill child, and print message
+    int read_t;
+    char buf[512];
+    int err;
+    int status;
 
+    signal(SIGALRM, signalarm);
+
+
+    while(1)
+    {
+        //prompt
+        write(1, ">", 1);
+
+        read_t = read(1, buf, 512);
+
+        child = fork();
+
+        if (child == 0)
+        {
+            //child
+            buf[read_t - 1] = 0;
+            err = execl(buf, buf, NULL);
+	    if (err != 0)
+            {
+		alarm(0);
+                write(1, "execute file error!\n", 20);
+                exit(1);
+            }
+            exit(0);
+        }
+        else
+        {
+            //father
+            alarm(2);
+            wait(&status);
+            alarm(0);
+
+            if (status != 0)
+                continue;
+            switch (state) 
+            {
+                case 0://< 2 second
+                    {
+                        write(1, "Wow, that was fast!\n", 20);
+                        break;
+                    }
+                case 1:// 2 second < < 5 second
+                    {
+                        write(1, "That wasn't very fast\n", 22);
+                        break;
+                    }
+                case 2:// 5 second < < 10 second
+                    {
+                        write(1, "What took so long?\n", 19);
+                        break;
+                    }
+                case 3:// > 10 second
+                    {
+                        break;
+                    }
+            }
+            state = 0;
+        }
+
+    }
+    return 0;
+
+}
+
+void signalarm()
+{
+    //0-- 2 second, 1-- 5 second, 2-- 10 second
+    switch (state)
+    {
+        case 0:
+            {
+                state++;
+                alarm(3);
+                break;
+            }
+        case 1:
+            {
+                write(1, "This is taking much too long!\n", 31);
+                state++;
+                alarm(5);
+                break;
+            }
+        case 2:
+            {
+                write(1, "I've had enough of this!\n", 25);
+                state++;
+                kill(child, SIGKILL);
+                break;
+            }
+    }
 }
