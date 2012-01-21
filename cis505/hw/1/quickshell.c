@@ -1,18 +1,3 @@
-// ===================================================================
-// 
-//       Filename:  quickshell.c
-// 
-//    Description:  simple shell program
-// 
-//        Version:  1.0
-//        Created:  01/17/2012 20:33:30
-//       Revision:  none
-//       Compiler:  gcc
-// 
-//         Author:  Zi Yan (yz), yanzi@cis.upenn.edu
-//        Company:  
-// 
-// ===================================================================
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
