@@ -1,0 +1,157 @@
+     1	// ===================================================================
+     2	// 
+     3	//       Filename:  quickshell.c
+     4	// 
+     5	//    Description:  simple shell program
+     6	// 
+     7	//        Version:  1.0
+     8	//        Created:  01/17/2012 20:33:30
+     9	//       Revision:  none
+    10	//       Compiler:  gcc
+    11	// 
+    12	//         Author:  Zi Yan (yz), yanzi@cis.upenn.edu
+    13	//        Company:  
+    14	// 
+    15	// ===================================================================
+    16	#include <stdio.h>
+    17	#include <stdlib.h>
+    18	#include <signal.h>
+    19	#include <unistd.h>
+    20	
+    21	void signalarm();
+    22	pid_t child;
+    23	//state indicating how and when the child dies
+    24	static state = 0;
+    25	
+    26	int main()
+    27	{
+    28	    int read_t;
+    29	    int write_t;
+    30	    char buf[512];
+    31	    int err;
+    32	    int status;
+    33	
+    34	    //set up alarm signal call back function
+    35	    signal(SIGALRM, signalarm);
+    36	
+    37	
+    38	    while(1)
+    39	    {
+    40	        //prompt
+    41	        write(STDOUT_FILENO, ">", 1);
+    42	
+    43	        //get user input from standard output
+    44	        read_t = read(STDIN_FILENO, buf, 512);
+    45	        if (read_t == -1)
+    46	        {
+    47	            write(STDERR_FILENO, "can't read msg!\n", 16);
+    48	        }
+    49	
+    50	        child = fork();
+    51	        if (child == -1)
+    52	        {
+    53	            write(STDERR_FILENO, "can't fork a child!\n", 20);
+    54	        }
+    55	
+    56	        if (child == 0)
+    57	        {
+    58	            //child
+    59	            //remove last newline symbol
+    60	            buf[read_t - 1] = 0;
+    61	            //execute corresponding command or file
+    62	            err = execl(buf, buf, NULL);
+    63	            if (err != 0)
+    64	            {
+    65	                //cancel alarm
+    66	                alarm(0);
+    67	                write(STDERR_FILENO, "execute file error!\n", 20);
+    68	                exit(1);
+    69	            }
+    70	            exit(0);
+    71	        }
+    72	        else
+    73	        {
+    74	            //father
+    75	            //set first alarm
+    76	            alarm(2);
+    77	            //wait for child's death
+    78	            wait(&status);
+    79	            //cancel alarm, because this round is over
+    80	            alarm(0);
+    81	
+    82	            //child abnormally exit, skip msg printing
+    83	            if (status != 0)
+    84	                continue;
+    85	            //print msg according to the state which inidicates the used time
+    86	            switch (state) 
+    87	            {
+    88	                case 0://< 2 second
+    89	                    {
+    90	                        write(STDOUT_FILENO, "Wow, that was fast!\n", 20);
+    91	                        break;
+    92	                    }
+    93	                case 1:// 2 second < < 5 second
+    94	                    {
+    95	                        write(STDOUT_FILENO, "That wasn't very fast\n", 22);
+    96	                        break;
+    97	                    }
+    98	                case 2:// 5 second < < 10 second
+    99	                    {
+   100	                        write(STDOUT_FILENO, "What took so long?\n", 19);
+   101	                        break;
+   102	                    }
+   103	                case 3:// > 10 second
+   104	                    {
+   105	                        break;
+   106	                    }
+   107	                default:
+   108	                    {
+   109	                        write(STDOUT_FILENO, 
+   110	                              "internal error: unexpected state!\n", 34);
+   111	                    }
+   112	            }
+   113	            //reset state
+   114	            state = 0;
+   115	        }
+   116	
+   117	    }
+   118	    return 0;
+   119	
+   120	}
+   121	
+   122	void signalarm()
+   123	{
+   124	    //state value:0-- 2 second, 1-- 5 second, 
+   125	    //            2-- 10 second, 3-- child is murdered 
+   126	    switch (state)
+   127	    {
+   128	        case 0:
+   129	            {
+   130	                state++;
+   131	                //set alarm incrementally
+   132	                alarm(3);
+   133	                break;
+   134	            }
+   135	        case 1:
+   136	            {
+   137	                write(STDOUT_FILENO, "This is taking much too long!\n", 31);
+   138	                state++;
+   139	                //set alarm incrementally
+   140	                alarm(5);
+   141	                break;
+   142	            }
+   143	        case 2:
+   144	            {
+   145	                write(STDOUT_FILENO, "I've had enough of this!\n", 25);
+   146	                state++;
+   147	                kill(child, SIGKILL);
+   148	                break;
+   149	            }
+   150	        default:
+   151	            {
+   152	                write(STDOUT_FILENO, 
+   153	                      "internal error: unexpected state!\n", 34);
+   154	
+   155	            }
+   156	    }
+   157	}
