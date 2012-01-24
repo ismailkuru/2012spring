@@ -282,10 +282,10 @@ Proof. reflexivity.  Qed.
 Fixpoint nonzeros (l:natlist) : natlist :=
   match l with
     |nil => nil
-    |hd::tl => match hd with
-                 |O => nonzeros tl
-                 |_ => hd::(nonzeros tl)
-               end
+    |lhd::ltl => match lhd with
+                   |O => nonzeros ltl
+                   |_ => lhd::(nonzeros ltl)
+                 end
   end.
 
 Example test_nonzeros:            nonzeros [0,1,0,2,3,0,0] = [1,2,3].
@@ -297,7 +297,7 @@ Qed.
 Fixpoint oddmembers (l:natlist) : natlist :=
    match l with
     |nil => nil
-    |hd::tl => if oddb hd then hd::(oddmembers tl) else oddmembers tl
+    |lhd::ltl => if oddb lhd then lhd::(oddmembers ltl) else oddmembers ltl
   end.
 
 Example test_oddmembers:            oddmembers [0,1,0,2,3,0,0] = [1,3].
@@ -362,7 +362,7 @@ Definition bag := natlist.
 Fixpoint count (v:nat) (s:bag) : nat := 
   match s with
     |nil => 0
-    |hd::tl => if beq_nat hd v then 1 + (count v tl) else count v tl
+    |shd::stl => if beq_nat shd v then 1 + (count v stl) else count v stl
   end.
 (** All these proofs can be done just by [reflexivity]. *)
 
@@ -414,7 +414,7 @@ Fixpoint remove_one (v:nat) (s:bag) : bag :=
      it should return the same bag unchanged. *)
   match s with
     |nil => nil
-    |hd::tl => if beq_nat hd v then tl else hd::remove_one v tl
+    |shd::stl => if beq_nat shd v then stl else shd::remove_one v stl
   end.
 
 Example test_remove_one1:         count 5 (remove_one 5 [2,1,5,4,1]) = 0.
@@ -430,7 +430,9 @@ Proof. reflexivity. Qed.
 Fixpoint remove_all (v:nat) (s:bag) : bag :=
   match s with
     |nil => nil
-    |hd::tl => if beq_nat hd v then remove_all v tl else hd::remove_all v tl
+    |shd::stl => if beq_nat shd v 
+                 then remove_all v stl 
+                 else shd::remove_all v stl
   end.
 
 
@@ -446,15 +448,15 @@ Proof. reflexivity. Qed.
 Fixpoint subset (s1:bag) (s2:bag) : bool :=
   match s1 with
     |nil => true
-    |hd::tl => if member hd s2 
-               then subset tl (remove_one hd s2) 
-               else false
+    |hd1::tl1 => if member hd1 s2 
+                 then subset tl1 (remove_one hd1 s2) 
+                 else false
   end.
 
 Example test_subset1:              subset [1,2] [2,1,4,1] = true.
 Proof. reflexivity. Qed.
 Example test_subset2:              subset [1,2,2] [2,1,4,1] = false.
-Proof. simpl. reflexivity. Qed.
+Proof. reflexivity. Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, recommended (bag_theorem) *)
@@ -803,55 +805,55 @@ Theorem app_nil_end : forall l : natlist,
   l ++ [] = l.   
 Proof.
   intros l.
-  induction l as [| hd tl].
+  induction l as [| lhd ltl].
   Case "l = []".
       reflexivity.
-  Case "l = hd::tl".
-      simpl. rewrite -> IHtl. reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite -> IHltl. reflexivity.
 Qed.
  
 Theorem rev_snoc : forall (n:nat) (l:natlist),
   rev (snoc l n) = n :: rev l.
 Proof.
   intros n l.
-  induction l as [| hd tl].
+  induction l as [| lhd ltl].
   Case "l = []".
       reflexivity.
-  Case "l = hd::tl".
-      simpl. rewrite -> IHtl. simpl. reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite -> IHltl. simpl. reflexivity.
 Qed.
 
 Theorem rev_involutive : forall l : natlist,
   rev (rev l) = l.
 Proof.
   intros l.
-  induction l as [| hd tl].
+  induction l as [| lhd ltl].
   Case "l = []".
       reflexivity.
-  Case "l = hd::tl".
-      simpl. rewrite -> rev_snoc. rewrite -> IHtl. reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite -> rev_snoc. rewrite -> IHltl. reflexivity.
 Qed.
  
 Theorem app_in_snoc : forall (l1 l2:natlist) (n:nat),
   snoc (l1 ++ l2) n = l1 ++ snoc l2 n.
 Proof.
   intros l1 l2 n.
-  induction l1 as [| hd tl].
+  induction l1 as [| hd1 tl1].
   Case "l1 = []".
       reflexivity.
-  Case "l1 = hd::tl".
-      simpl. rewrite -> IHtl. reflexivity.
+  Case "l1 = hd1::tl1".
+      simpl. rewrite -> IHtl1. reflexivity.
 Qed.
 
 Theorem distr_rev : forall l1 l2 : natlist,
   rev (l1 ++ l2) = (rev l2) ++ (rev l1).
 Proof.
   intros l1 l2.
-  induction l1 as [| hd tl].
+  induction l1 as [| hd1 tl1].
   Case "l1 = []".
       simpl. rewrite -> app_nil_end. reflexivity.
-  Case "l1 = hd::tl".
-      simpl. rewrite -> IHtl. rewrite -> app_in_snoc. reflexivity.
+  Case "l1 = hd1::tl1".
+      simpl. rewrite -> IHtl1. rewrite -> app_in_snoc. reflexivity.
 Qed.
 
 (** There is a short solution to the next exercise.  If you find
@@ -870,11 +872,11 @@ Theorem snoc_append : forall (l:natlist) (n:nat),
   snoc l n = l ++ [n].
 Proof.
   intros l n.
-  induction l as [| hd tl].
+  induction l as [| lhd ltl].
   Case "l = []".
       reflexivity.
-  Case "l = hd::tl".
-      simpl. rewrite -> IHtl. reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite -> IHltl. reflexivity.
 Qed.
   
 (** An exercise about your implementation of [nonzeros]: *)
@@ -883,15 +885,15 @@ Lemma nonzeros_length : forall l1 l2 : natlist,
   nonzeros (l1 ++ l2) = (nonzeros l1) ++ (nonzeros l2).
 Proof.
   intros l1 l2.
-  induction l1 as [| hd tl].
+  induction l1 as [| hd1 tl1].
   Case "l1 = []".
       reflexivity.
-  Case "l1 = hd::tl".
-      destruct hd as [| hd'].
-      SCase "hd = O".
-          simpl. rewrite -> IHtl. reflexivity.
-      SCase "hd = S hd'".
-          simpl. rewrite -> IHtl. reflexivity.
+  Case "l1 = hd1::tl1".
+      destruct hd1 as [| hd1'].
+      SCase "hd1 = O".
+          simpl. rewrite -> IHtl1. reflexivity.
+      SCase "hd1 = S hd1'".
+          simpl. rewrite -> IHtl1. reflexivity.
 Qed.
 (** [] *)
 
@@ -908,11 +910,11 @@ Theorem cons_snoc_ass : forall (l1 l2:natlist) (n:nat),
   l1 ++ (n::l2) = snoc l1 n ++ l2.
 Proof.
   intros l1 l2 n.
-  induction l1 as [| hd tl].
+  induction l1 as [| hd1 tl1].
   Case "l1 = []".
       reflexivity.
-  Case "l1 = hd::tl".
-      simpl. rewrite -> IHtl. reflexivity.
+  Case "l1 = hd1::tl1".
+      simpl. rewrite -> IHtl1. reflexivity.
 Qed.
 
 (** [] *)
@@ -944,16 +946,16 @@ Theorem remove_decreases_count: forall (s : bag),
   ble_nat (count 0 (remove_one 0 s)) (count 0 s) = true.
 Proof.
   intros s.
-  induction s as [| hd tl].
+  induction s as [| shd stl].
   Case "s = []".
       reflexivity.
-  Case "s = hd::tl".
+  Case "s = shd::stl".
       simpl.
-      destruct hd as [| hd'].
-      SCase "hd = O".
+      destruct shd as [| shd'].
+      SCase "shd = O".
           simpl. rewrite -> ble_n_Sn. reflexivity.
-      SCase "hd = S hd'".
-          simpl. rewrite -> IHtl. reflexivity.
+      SCase "shd = S hd'".
+          simpl. rewrite -> IHstl. reflexivity.
 Qed.
 (** [] *)
 
@@ -965,15 +967,15 @@ Theorem count_sum : forall (l1 l2:bag) (n:nat),
   count n l1 + count n l2 = count n (sum l1 l2).
 Proof.
   intros l1 l2 n.
-  induction l1 as [| hd tl].
+  induction l1 as [| hd1 tl1].
   Case "l1 = []".
       simpl. reflexivity.
-  Case "l1 = hd::tl".
-      simpl. destruct (beq_nat hd n).
-      SCase "beq_nat hd n = true".
-          simpl. rewrite -> IHtl. reflexivity.
-      SCase "beq_nat hd n = false".
-          rewrite -> IHtl. reflexivity.
+  Case "l1 = hd1::tl1".
+      simpl. destruct (beq_nat hd1 n).
+      SCase "beq_nat hd1 n = true".
+          simpl. rewrite -> IHtl1. reflexivity.
+      SCase "beq_nat hd1 n = false".
+          rewrite -> IHtl1. reflexivity.
 Qed.
 (** [] *)
 
@@ -1077,7 +1079,7 @@ Definition option_elim (d : nat) (o : natoption) : nat :=
 Definition hd_opt (l : natlist) : natoption :=
   match l with
     |nil => None
-    |hd::tl => Some hd
+    |lhd::ltl => Some lhd
   end.
 
 Example test_hd_opt1 : hd_opt [] = None.
@@ -1130,11 +1132,11 @@ Theorem beq_natlist_refl : forall l:natlist,
   true = beq_natlist l l.
 Proof.
   intros l.
-  induction l as [| hd tl].
+  induction l as [| lhd ltl].
   Case "l = []".
       simpl. reflexivity.
-  Case "l = hd::tl".
-      simpl. rewrite <- IHtl. rewrite <- beq_nat_refl. reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite <- IHltl. rewrite <- beq_nat_refl. reflexivity.
 Qed.
 (** [] *)
 
