@@ -22,16 +22,23 @@ int main()
 
     while(1)
     {
+        //reset state
+        state = 0;
+
         //prompt
         write(STDOUT_FILENO, ">", 1);
 
-        //get user input from standard output
+        //get user input from standard output, at most 512 chars
         read_t = read(STDIN_FILENO, buf, 512);
         if (read_t == -1)
         {
             write(STDERR_FILENO, "can't read msg!\n", 16);
             _exit(1);
         }
+
+        //get EOF
+        if (read_t == 0)
+            break;
 
         child = fork();
         if (child == -1)
@@ -95,8 +102,6 @@ int main()
                               "internal error: unexpected state!\n", 34);
                     }
             }
-            //reset state
-            state = 0;
         }
 
     }
