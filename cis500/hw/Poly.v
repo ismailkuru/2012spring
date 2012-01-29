@@ -434,8 +434,13 @@ Fixpoint combine' {X Y : Type} (lx : list X) (ly : list Y)
 [[
         Eval simpl in (combine [1,2] [false,false,true,true]).
 ]]
-      print?   []
+     print?      
+
+    1. type of [combine] is list X -> list Y -> List (X*Y)
+    2. it prints [(1,false), (2, false)]
+   []
 *)
+
 
 (** **** Exercise: 2 stars, recommended (split) *)
 (** The function [split] is the right inverse of combine: it takes a
@@ -445,14 +450,19 @@ Fixpoint combine' {X Y : Type} (lx : list X) (ly : list Y)
     Uncomment the material below and fill in the definition of
     [split].  Make sure it passes the given unit tests. *)
 
-(* 
-Fixpoint split 
-  (* FILL IN HERE *)
 
+Fixpoint split {X Y:Type} (l:list (X*Y)) : (list X*list Y) :=
+  match l with
+    |nil => (nil, nil)
+    |(hdx, hdy)::tl => match split tl with
+                         |(tlx, tly) => (hdx::tlx, hdy::tly)
+                       end
+  end.
+ 
 Example test_split:
   split [(1,false),(2,false)] = ([1,2],[false,false]).
 Proof. reflexivity.  Qed.
-*)
+
 (** (If you're reading the HTML version of this file, note that
     there's an unresolved typesetting problem in the example: several
     square brackets are missing.  Refer to the .v file for the correct
@@ -496,7 +506,10 @@ Proof. reflexivity.  Qed.
     passes the unit tests below. *)
 
 Definition hd_opt {X : Type} (l : list X)  : option X :=
-  (* FILL IN HERE *) admit.
+  match l with
+    |nil => None
+    |hdl::tll => Some hdl
+  end.
 
 (** Once again, to force the implicit arguments to be explicit, 
     we can use [@] before the name of the function. *)
@@ -504,9 +517,9 @@ Definition hd_opt {X : Type} (l : list X)  : option X :=
 Check @hd_opt.
 
 Example test_hd_opt1 :  hd_opt [1,2] = Some 1. 
- (* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed.
 Example test_hd_opt2 :   hd_opt  [[1],[2]]  = Some [1].
- (* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed.
 (** [] *)
 
 (* ###################################################### *)
@@ -598,7 +611,7 @@ Definition prod_curry {X Y Z : Type}
 
 Definition prod_uncurry {X Y Z : Type}
   (f : X -> Y -> Z) (p : X * Y) : Z :=
-  (* FILL IN HERE *) admit.
+  f (fst p) (snd p).
 
 (** (Thought exercise: before running these commands, can you
     calculate the types of [prod_curry] and [prod_uncurry]?) *)
@@ -609,13 +622,19 @@ Check @prod_uncurry.
 Theorem uncurry_curry : forall (X Y Z : Type) (f : X -> Y -> Z) x y,
   prod_curry (prod_uncurry f) x y = f x y.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X Y Z f x y.
+  unfold prod_uncurry. unfold prod_curry. simpl. reflexivity.
+Qed.
 
 Theorem curry_uncurry : forall (X Y Z : Type) 
                                (f : (X * Y) -> Z) (p : X * Y),
   prod_uncurry (prod_curry f) p = f p.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X Y Z f p.
+  unfold prod_curry. unfold prod_uncurry. 
+  destruct p as (l, r). 
+  simpl. reflexivity.
+Qed.
 (** [] *)
 
 (* ###################################################### *)
@@ -700,15 +719,15 @@ Proof. reflexivity.  Qed.
     which are even and greater than 7. *)
 
 Definition filter_even_gt7 (l : list nat) : list nat :=
-  (* FILL IN HERE *) admit.
+  filter (fun n => andb (blt_nat 7 n) (evenb n)) l.
 
 Example test_filter_even_gt7_1 :
   filter_even_gt7 [1,2,6,9,10,3,12,8] = [10,12,8].
- (* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed.
 
 Example test_filter_even_gt7_2 :
   filter_even_gt7 [5,2,6,19,129] = [].
- (* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (partition) *)
@@ -728,12 +747,13 @@ Example test_filter_even_gt7_2 :
 
 Definition partition {X : Type} (test : X -> bool) (l : list X) 
                      : list X * list X :=
-(* FILL IN HERE *) admit.
+    (filter test l, filter (fun x => negb (test x)) l).
 
 Example test_partition1: partition oddb [1,2,3,4,5] = ([1,3,5], [2,4]).
-(* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed.
+
 Example test_partition2: partition (fun x => false) [5,9,0] = ([], [5,9,0]).
-(* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed.
 (** [] *)
 
 (* ###################################################### *)
@@ -777,10 +797,27 @@ Proof. reflexivity.  Qed.
 (** Show that [map] and [rev] commute.  You may need to define an
     auxiliary lemma. *)
 
+Lemma map_snoc : forall (X Y:Type) (f:X->Y) (l:list X) (n:X),
+  map f (snoc l n) = snoc (map f l) (f n).
+Proof.
+  intros X Y f l n.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite -> IHltl. reflexivity.
+Qed.
+
 Theorem map_rev : forall (X Y : Type) (f : X -> Y) (l : list X),
   map f (rev l) = rev (map f l).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X Y f l.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      simpl. reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite <- IHltl. rewrite -> map_snoc. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, recommended (flat_map) *)
@@ -797,12 +834,15 @@ Proof.
 
 Fixpoint flat_map {X Y:Type} (f:X -> list Y) (l:list X) 
                    : (list Y) := 
-  (* FILL IN HERE *) admit.
+    match l with
+      |nil => nil
+      |lhd::ltl => (f lhd) ++ flat_map f ltl
+    end.
 
 Example test_flat_map1: 
   flat_map (fun n => [n,n,n]) [1,5,4]
   = [1, 1, 1, 5, 5, 5, 4, 4, 4].
- (* FILL IN HERE *) Admitted.
+Proof. reflexivity. Qed.
 (** [] *)
 
 (** Lists are not the only inductive type that we can write a
@@ -873,6 +913,15 @@ Proof. reflexivity. Qed.
     that takes an [X] and a [Y] and returns a [Y].  Can you think of a
     situation where it would be useful for [X] and [Y] to be
     different? *)
+Definition rev' {X:Type} (l:list X) : list X :=
+  fold (fun n res => snoc res n) l nil.
+
+Example rev'_example: rev' [1, 2, 3] = [3, 2, 1].
+Proof. reflexivity. Qed.
+
+(** The definition of [rev'] above use [fold] in the way that the type
+of X and Y in the instance of [fold] differ, where the X is an 
+element, and the Y is a list of X.*)
 
 (* ###################################################### *)
 (** ** Functions For Constructing Functions *)
@@ -932,8 +981,10 @@ Proof. reflexivity. Qed.
 Theorem override_example : forall (b:bool), 
   (override (constfun b) 3 true) 2 = b.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  intros b.
+  unfold override. simpl. unfold constfun. reflexivity.
+Qed.
+ (** [] *)
 
 (** We'll use function overriding heavily in parts of the rest of the
     course, and we will end up needing to know quite a bit about its
@@ -1005,7 +1056,9 @@ Theorem silly_ex :
      evenb 3 = true ->
      oddb 4 = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros H1 H2. 
+  apply H1. apply H2.
+Qed.
 (** [] *)
 
 (** To use the [apply] tactic, the (conclusion of the) fact
@@ -1037,6 +1090,17 @@ Proof.
 
 (** **** Exercise: 3 stars, recommended (apply_exercise1) *)
 
+Lemma rev_involutive : forall (X:Type) (l:list X),
+  rev (rev l) = l.
+Proof.
+  intros X l.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      simpl. reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite -> rev_snoc. rewrite -> IHltl. reflexivity.
+Qed.
+
 Theorem rev_exercise1 : forall (l l' : list nat),
      l = rev l' ->
      l' = rev l.
@@ -1044,7 +1108,11 @@ Proof.
   (* Hint: you can use [apply] with previously defined lemmas, not
      just hypotheses in the context.  Remember that [SearchAbout] is
      your friend. *)
-  (* FILL IN HERE *) Admitted.
+  intros l l' H.
+  rewrite -> H.
+  symmetry.
+  apply rev_involutive.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star (apply_rewrite) *)
@@ -1052,7 +1120,13 @@ Proof.
     [rewrite].  Are there situations where both can usefully be
     applied?
 
-  (* FILL IN HERE *)
+  For [apply], it can be used when the goal is exactly the same
+as the hypothesis or some theorem or lemma.
+
+  For [rewrite], once a term is the same as one side of the hypothesis
+or some theorem or lemma, it can be used.
+
+  For the situation that [apply] can be used, both can be applied.
 *)
 (** [] *)
 
@@ -1108,7 +1182,9 @@ Theorem override_neq : forall {X:Type} x1 x2 k1 k2 (f : nat->X),
   beq_nat k2 k1 = false ->
   (override f k2 x2) k1 = x1.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X x1 x2 k1 k2 f H1 H2.
+  unfold override. rewrite -> H2. apply H1.
+Qed.
 (** [] *)
 
 (** As the inverse of [unfold], Coq also provides a tactic
@@ -1203,7 +1279,9 @@ Example sillyex1 : forall (X : Type) (x y z : X) (l j : list X),
      y :: l = x :: j ->
      x = y.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X x y z l j H1 H2.
+  inversion H1. inversion H2. symmetry. apply H0.
+Qed.
 (** [] *)
 
 Theorem silly6 : forall (n : nat),
@@ -1224,7 +1302,9 @@ Example sillyex2 : forall (X : Type) (x y z : X) (l j : list X),
      y :: l = z :: j ->
      x = z.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X x y z l j H1 H2.
+  inversion H1.
+Qed.
 (** [] *)
 
 (** While the injectivity of constructors allows us to reason
@@ -1293,8 +1373,40 @@ Proof.
 
 (** **** Exercise: 2 stars (beq_nat_eq_informal) *)
 (** Give an informal proof of [beq_nat_eq]. *)
+(**
+   Theorem: beq_nat_eq.
+   
+   Proof: We need to prove for any natural number [n] and [m], 
+   if [true =beq_nat n m], we have [n = m].
 
-(* FILL IN HERE *)
+   By induction on [n].
+   - First, suppose [n = 0]. We must show
+       for any natural number [m], if [true = beq_nat 0 m], 
+     we have 
+       [0 = m].
+     By case analysis on [m].
+     - Suppose [m = 0], the statement above is immediate.
+     - Suppose [m = S m'], we can find contradiction in the 
+       hypothesis [true = beq_nat 0 m], therefore, this case 
+       is impossible.
+   
+   - Second, suppose [n = S n'], where 
+       for any natural number [m], 
+       if [true = beq_nat n' m], then [n' = m]. 
+     We must show
+       for any natural number [m], 
+       if [true = beq_nat (S n') m], [S n' = m].
+
+     By case analysis on [m].
+     - Suppose [m = 0]. It contradicts with hypothesis 
+         [true = beq_nat (S n') m], 
+       therefore, this case is impossible.
+     - Suppose [m = S m']. We need to prove 
+         if [true = beq_nat (S n') (S m')], then [S n' = S m'].
+       By theorem eq_remove_S and induction hypothesis,
+       this is straightforward.
+
+*)
 (** [] *)
 
 (** **** Exercise: 3 stars (beq_nat_eq') *)
@@ -1309,7 +1421,19 @@ Theorem beq_nat_eq' : forall m n,
   beq_nat n m = true -> n = m.
 Proof.
   intros m. induction m as [| m']. 
-  (* FILL IN HERE *) Admitted.
+  Case "m = 0".
+      intros n H. destruct n as [| n'].
+      SCase "n = 0".
+          reflexivity.
+      SCase "n = S n'".
+          inversion H.
+  Case "m = S m'".
+      intros n H. destruct n as [| n'].
+      SCase "n = 0".
+          inversion H.
+      SCase "n = S n'".
+          apply eq_remove_S. apply IHm'. apply H.
+Qed.
 (** [] *)
 
 (** Here's another illustration of [inversion].  This is a slightly
@@ -1344,12 +1468,22 @@ Proof.
 Theorem beq_nat_0_l : forall n,
   true = beq_nat 0 n -> 0 = n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  destruct n as [| n'].
+  Case "n = 0".
+      reflexivity.
+  Case "n = S n'".
+      intros H. inversion H.
+Qed.
 
 Theorem beq_nat_0_r : forall n,
   true = beq_nat n 0 -> 0 = n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  destruct n as [| n'].
+  Case "n = 0".
+      reflexivity.
+  Case "n = S n'".
+      intros H. inversion H.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars (apply_exercise2) *)
@@ -1362,8 +1496,22 @@ Theorem beq_nat_sym : forall (n m : nat),
   beq_nat n m = beq_nat m n.
 Proof.
   intros n. induction n as [| n'].
-  (* FILL IN HERE *) Admitted.
+  Case "n = 0".
+      intros m. destruct m as [| m'].
+      SCase "m = 0".
+          reflexivity.
+      SCase "m = S m'".
+          simpl. reflexivity.
+  Case "n = S n'".
+      intros m. destruct m as [| m'].
+      SCase "m = 0".
+          simpl. reflexivity.
+      SCase "m = S m'".
+          simpl. apply IHn'.
+Qed.
 (** [] *)
+
+Print beq_nat.
 
 (** **** Exercise: 3 stars, recommended (beq_nat_sym_informal) *)
 (** Provide an informal proof of this lemma that corresponds
@@ -1372,7 +1520,33 @@ Proof.
    Theorem: For any [nat]s [n] [m], [beq_nat n m = beq_nat m n].
 
    Proof:
-   (* FILL IN HERE *)
+   By induction on [n].
+   - First, suppose [n = 0]. We must show 
+      [beq_nat 0 m = beq_nat m 0].
+     By case analysis of [m].
+     - Suppose [m = 0].
+       We must prove 
+         [beq_nat 0 0 = beq_nat 0 0].
+       It is immediate from the definition of [beq_nat].
+     - Suppose [m = S m'].
+       We must prove 
+         [beq_nat 0 (S m') = beq_nat (S m') 0].
+       It is immediate from the definition of [beq_nat].
+   - Second, suppose [n = S n'], where 
+       for any [nat] [m], [beq_nat n' m = beq_nat m n'].
+     We must show
+      [beq_nat (S n') m = beq_nat 0 (S n')].
+     By case analysis of [m].
+     - Suppose [m = 0].
+       We must prove 
+         [beq_nat (S n') 0 = beq_nat 0 (S n')].
+       It is immediate from the definition of [beq_nat].
+     - Suppose [m = S m'].
+       We must prove
+         [beq_nat (S n') (S m') = beq_nat (S m') (S n')].
+       By definition of [beq_nat], this follows from
+         [beq_nat n' m' = beq_nat m' n'],
+       which is immediate from the induction hypothesis.
 []
  *)
 
@@ -1437,7 +1611,22 @@ Theorem plus_n_n_injective : forall n m,
 Proof.
   intros n. induction n as [| n'].
     (* Hint: use the plus_n_Sm lemma *)
-    (* FILL IN HERE *) Admitted.
+  Case "n = 0".
+      intros m H. destruct m as [| m'].
+      SCase "m = 0".
+          reflexivity.
+      SCase "m = S m'".
+          inversion H.
+  Case "n = S n'".
+      intros m H. destruct m as [| m'].
+      SCase "m = 0".
+          inversion H.
+      SCase "m = S m'".
+          simpl in H. rewrite <- plus_n_Sm in H.
+          rewrite <- plus_n_Sm in H. inversion H.
+          apply IHn' in H1. rewrite -> H1.
+          reflexivity.
+Qed.
 (** [] *)
 
 (* ###################################################### *)
@@ -1475,18 +1664,51 @@ Proof.
 Theorem override_shadow : forall {X:Type} x1 x2 k1 k2 (f : nat->X),
   (override (override f k1 x2) k1 x1) k2 = (override f k1 x1) k2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X x1 x2 k1 k2 f.
+  unfold override.
+  destruct (beq_nat k1 k2).
+  Case "beq_nat k1 k2 = true".
+      reflexivity.
+  Case "beq_nat k1 k2 = false".
+      reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, recommended (combine_split) *)
-(* 
+
+Theorem split_cons : forall (X Y:Type) (x:X) (y:Y) (l:list(X*Y))
+ (lx:list X) (ly:list Y), 
+ split ((x,y)::l) = (x::lx, y::ly) -> split l = (lx, ly).
+Proof.
+  intros X Y x y l lx ly H. Print split.
+  inversion H. destruct (split l). inversion H1.
+  reflexivity.
+Qed.
+
 Theorem combine_split : forall X Y (l : list (X * Y)) l1 l2,
   split l = (l1, l2) ->
   combine l1 l2 = l.
 Proof.
   intros X Y l. induction l as [| [x y] l'].
-  (* FILL IN HERE *) Admitted.
-*)
+  Case "l = []".
+      intros l1 l2 H.
+      inversion H.
+      reflexivity.
+  Case "l = (x, y)::l'".
+      intros l1 l2 H.
+      destruct l1 as [| hd1 tl1].
+      SCase "l1 = []".
+          inversion H. destruct (split l') in H1. inversion H1.
+      SCase "l1 = hd1::tl1".
+          destruct l2 as [| hd2 tl2].
+          SSCase "l2 = []".
+              inversion H. destruct (split l') in H1. inversion H1.
+          SSCase "l2 = hd2::tl2".
+              inversion H. destruct (split l') in H1. inversion H1.
+              rewrite -> H2 in H. rewrite -> H4 in H. 
+              apply split_cons in H. apply IHl' in H.
+              simpl. rewrite -> H. reflexivity.
+Qed.              
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (split_combine) *)
@@ -1501,7 +1723,45 @@ Proof.
     induction hypothesis general by not doing [intros] on more things
     than necessary.) *)
 
-(* FILL IN HERE *) 
+Theorem split_combine : forall X Y (l : list (X * Y)) l1 l2,
+  length l1 = length l2 -> combine l1 l2 = l -> split l = (l1, l2).
+Proof.
+  intros X Y l.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      intros l1 l2 H1 H2.
+      destruct l1 as [| hd1 tl1].
+      SCase "l1 = []".
+          destruct l2 as [| hd2 tl2].
+          SSCase "l2 = []".
+              reflexivity.
+          SSCase "l2 = hd2::tl2".
+              inversion H1.
+      SCase "l1 = hd1::tl1".
+          destruct l2 as [| hd2 tl2].
+          SSCase "l2 = []".
+              inversion H1.
+          SSCase "l2 = hd2::tl2".
+              inversion H2.
+  Case "l = lhd::ltl".
+      intros l1 l2 H1 H2.
+      destruct l1 as [| hd1 tl1].
+      SCase "l1 = []".
+          destruct l2 as [| hd2 tl2].
+          SSCase "l2 = []".
+              inversion H2.
+          SSCase "l2 = hd2::tl2".
+              inversion H1.
+      SCase "l1 = hd1::tl1".
+          destruct l2 as [| hd2 tl2].
+          SSCase "l2 = []".
+              inversion H1.
+          SSCase "l2 = hd2::tl2".
+              destruct lhd as (x, y).
+              simpl. destruct (split ltl).
+              inversion H2. inversion H1. apply IHltl in H5.
+              inversion H5. reflexivity. apply H4.
+Qed.
 (** [] *)
 
 (* ###################################################### *)
@@ -1592,7 +1852,16 @@ Theorem override_same : forall {X:Type} x1 k1 k2 (f : nat->X),
   f k1 = x1 -> 
   (override f k1 x1) k2 = f k2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X x1 k1 k2 f H.
+  unfold override.
+  remember (beq_nat k1 k2) as eq.
+  destruct eq.
+  Case "true = beq_nat k1 k2".
+      apply beq_nat_eq in Heqeq. rewrite <- Heqeq.
+      symmetry. apply H.
+  Case "false = beq_nat k1 k2".
+      reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (filter_exercise) *)
@@ -1605,8 +1874,18 @@ Theorem filter_exercise : forall (X : Type) (test : X -> bool)
      filter test l = x :: lf ->
      test x = true.
 Proof.
-  (* FILL IN HERE *) Admitted.
-(** [] *)
+  intros X test x l.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      intros lf H. inversion H.
+  Case "l = lhd::ltl".
+      intros lf H. inversion H. remember (test lhd) as e1.
+      destruct e1.
+      SCase "true = test lhd".
+          inversion H1. rewrite <- H2. symmetry. apply Heqe1.
+      SCase "false = test lhd".
+          apply IHltl in H1. apply H1.
+Qed.
 
 (* ###################################################### *)
 (** ** The [apply ... with ...] Tactic *)
@@ -1663,20 +1942,47 @@ Example trans_eq_exercise : forall (n m o p : nat),
      (n + p) = m ->
      (n + p) = (minustwo o). 
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m o p H1 H2.
+  apply trans_eq with m. apply H2. apply H1.
+Qed.
 
 Theorem beq_nat_trans : forall n m p,
   true = beq_nat n m ->
   true = beq_nat m p ->
   true = beq_nat n p.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros n m p H1 H2.
+  apply beq_nat_eq in H1. apply beq_nat_eq in H2. 
+  assert (H:n = p).
+      apply trans_eq with m. apply H1. apply H2.
+  rewrite -> H. apply beq_nat_refl.
+Qed.
 
 Theorem override_permute : forall {X:Type} x1 x2 k1 k2 k3 (f : nat->X),
   false = beq_nat k2 k1 ->
   (override (override f k2 x2) k1 x1) k3 = (override (override f k1 x1) k2 x2) k3.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X x1 x2 k1 k2 k3 f H1.
+  unfold override.
+  remember (beq_nat k1 k3) as e13.
+  remember (beq_nat k2 k3) as e23.
+  destruct e13.
+  Case "k1 = k3".
+      destruct e23.
+      SCase "k2 = k3".
+          rewrite beq_nat_sym in Heqe13.
+          apply beq_nat_trans with (m:=k3) (p:=k1) in Heqe23.
+          rewrite <- H1 in Heqe23. inversion Heqe23.
+          apply Heqe13.
+      SCase "k2 <> k3".
+          reflexivity.
+  Case "k1 <> k3".
+      destruct e23.
+      SCase "k2 = k3".
+          reflexivity.
+      SCase "k2 <> k3".
+          reflexivity.
+Qed.
 (** [] *)
 
 (* ################################################################## *)
@@ -1767,7 +2073,14 @@ Proof. reflexivity. Qed.
 
 Theorem fold_length_correct : forall X (l : list X),
   fold_length l = length l.
-(* FILL IN HERE *) Admitted. 
+Proof.
+  intros X l.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite <- IHltl. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, recommended (fold_map) *)
@@ -1775,12 +2088,21 @@ Theorem fold_length_correct : forall X (l : list X),
     below. *)
 
 Definition fold_map {X Y:Type} (f : X -> Y) (l : list X) : list Y :=
-(* FILL IN HERE *) admit.
+  fold (fun lhd ltl => (f lhd)::ltl) l nil.
 
 (** Write down a theorem in Coq stating that [fold_map] is correct,
     and prove it. *)
 
-(* FILL IN HERE *)
+Theorem fold_map_correct : forall X Y (l:list X) (f:X->Y),
+  fold_map f l = map f l.
+Proof.
+  intros X Y l f.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      reflexivity.
+  Case "l = lhd::ltl".
+      simpl. rewrite <- IHltl. reflexivity.
+Qed.
 (** [] *)
 
 Module MumbleBaz.
@@ -1804,8 +2126,14 @@ Inductive grumble (X:Type) : Type :=
       - [e mumble (b c 0)]
       - [e bool (b c 0)]
       - [c] 
-(* FILL IN HERE *)
+      
+      Well-typed elements of [grumble X] are:
+      - [d mumble (b a 5)]
+      - [d bool (b a 5)]
+      - [e bool true]
+      - [e mumble (b c 0)]
 [] *)
+
 
 (** **** Exercise: 2 stars, optional (baz_num_elts) *)
 (** Consider the following inductive definition: *)
@@ -1815,7 +2143,7 @@ Inductive baz : Type :=
    | y : baz -> bool -> baz.
 
 (** How _many_ elements does the type [baz] have? 
-(* FILL IN HERE *)
+   0, because no basic element.
 [] *)
 
 End MumbleBaz.
@@ -1850,7 +2178,57 @@ End MumbleBaz.
     Prove that [existsb'] and [existsb] have the same behavior.
 *)
 
-(* FILL IN HERE *)
+Fixpoint forallb {X:Type} (f:X->bool) (l:list X) :=
+  match l with
+    |nil => true
+    |lhd::ltl => if f lhd then forallb f ltl else false
+  end.
+
+Example forallb_t1: forallb oddb [1,3,5,7,9] = true.
+Proof. reflexivity. Qed.
+Example forallb_t2: forallb negb [false,false] = true.
+Proof. reflexivity. Qed.
+Example forallb_t3: forallb evenb [0,2,4,5] = false.
+Proof. reflexivity. Qed.  
+Example forallb_t4: forallb (beq_nat 5) [] = true.
+Proof. reflexivity. Qed. 
+
+Fixpoint existsb {X:Type} (f:X->bool) (l:list X) :=
+  match l with
+    |nil => false
+    |lhd::ltl => if f lhd then true else existsb f ltl
+  end.
+
+Example exitstb_t1: existsb (beq_nat 5) [0,2,3,6] = false.
+Proof. reflexivity. Qed.
+Example existsb_t2: existsb (andb true) [true,true,false] = true.
+Proof. reflexivity. Qed.
+Example existsb_t3: existsb oddb [1,0,0,0,0,3] = true.
+Proof. reflexivity. Qed.
+Example existsb_t4: existsb evenb [] = false.
+Proof. reflexivity. Qed.
+
+Definition existsb' {X:Type} (f:X->bool) (l:list X) :=
+  negb (forallb (fun x => negb (f x)) l).
+
+Theorem existsb_eq : forall (X:Type) (f:X->bool) (l:list X),
+  existsb f l = existsb' f l.
+Proof.
+  intros X f l.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      reflexivity.
+  Case "l = lhd::ltl".
+      simpl.
+      remember (f lhd) as e1.
+      destruct e1.
+      SCase "f lhd = true".
+          unfold existsb'. unfold forallb. 
+          rewrite <- Heqe1. reflexivity.
+      SCase "f lhd = false".
+          simpl. rewrite -> IHltl. unfold existsb'.
+          unfold forallb. rewrite <- Heqe1. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, optional (index_informal) *)
@@ -1866,7 +2244,39 @@ End MumbleBaz.
 [[
    forall X n l, length l = n -> @index X (S n) l = None.
 ]]
-(* FILL IN HERE *)
+   Proof:
+   By induction on [l].
+      In order to prove above, we can prove 
+        for any [nat] [n], [length l = n -> index (S n) l = None].
+   - First, suppose [l = []],
+     we need to prove 
+       for any [nat] [n], [length [] = n -> index (S n) [] = None].
+     This is immediate from the definition of index.
+  
+   - Second, suppose [l = lhd::ltl], where
+       for any [nat] [n], [length ltl = n -> 
+                           index (S n) ltl = None].
+     we need to prove
+       for any [nat] [n], [length (lhd::ltl) = n -> 
+                           index (S n) (lhd::ltl) = None].
+                           
+     Namely, 
+       for any [nat] [n], [S (length ltl) = n ->
+                           index n ltl = None]
+     by the definition of length and index.
+
+     It is immediate from the inductive hypothesis.      
+     
 *)
+Theorem index_formal: forall X l n, 
+  length l = n -> @index X (S n) l = None.
+Proof.
+  intros X l.
+  induction l as [| lhd ltl].
+  Case "l = []".
+     simpl. reflexivity.
+  Case "l = lhd::ltl".
+     simpl. intros. rewrite <- H. apply IHltl. reflexivity.
+Qed.
 (** [] *)
 
