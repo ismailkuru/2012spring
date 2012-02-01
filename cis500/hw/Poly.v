@@ -2268,10 +2268,11 @@ Qed.
      It is immediate from the inductive hypothesis.      
      
 *)
-Theorem index_formal: forall X l n, 
+Theorem index_formal: forall X n l, 
   length l = n -> @index X (S n) l = None.
 Proof.
-  intros X l.
+  intros X n l.
+  generalize dependent n.
   induction l as [| lhd ltl].
   Case "l = []".
      simpl. reflexivity.
