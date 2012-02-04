@@ -1230,13 +1230,13 @@ Inductive foo' (X:Type) : Type :=
      foo'_ind :
         forall (X : Type) (P : foo' X -> Prop),
               (forall (l : list X) (f : foo' X),
-                    _______________________ -> 
-                    _______________________   ) ->
-             ___________________________________________ ->
-             forall f : foo' X, ________________________
+                    P f -> 
+                    P (C1 X l f)) ->
+             P (C2 X) ->
+             forall f : foo' X, P f.
 ]]
 *)
-
+Print foo'_ind.
 (** [] *)
 
 (* ##################################################### *)
@@ -1290,7 +1290,7 @@ Proof.
     [n] (using either [induction] or [apply nat_ind]), we see that the
     first subgoal requires us to prove [P_m0r 0] ("[P] holds for
     zero"), while the second subgoal requires us to prove [forall n',
-    P_m0r n' -> P_m0r n' (S n')] (that is "[P] holds of [S n'] if it
+    P_m0r n' -> P_m0r (S n')] (that is "[P] holds of [S n'] if it
     holds of [n']" or, more elegantly, "[P] is preserved by [S]").
     The _induction hypothesis_ is the premise of this latter
     implication -- the assumption that [P] holds of [n'], which we are
@@ -1448,10 +1448,25 @@ Inductive p : (tree nat) -> nat -> Prop :=
             p t1 n1 -> p t2 n2 -> p (node _ t1 t2) (n1 + n2)
    | c3 : forall t n, p t n -> p t (S n).
 
+Print p_ind.
+
 (** Describe, in English, the conditions under which the
    proposition [p t n] is provable. 
 
-   (* FILL IN HERE *)
+   - Suppose, [p] is a property of tree of [nat] and natural numbers 
+     (that is, [p t n] is a [Prop] for every [t] and [n]).  
+     To show that [p t n] is provable, it suffices to show:
+  
+      - for any natural number [n], if [l] is the evidence of [leaf _ n], 
+        [p l 1] is provable.
+  
+      - for any tree of [nat] [t1] and [t2], and any natural number 
+        [n1] [n2], if [p t1 n1] is provable, [p t2 n2] is provable,
+        and [n] is the evidence of [node _ t1 t2], [p n (n1+n2)] is
+        provable.
+
+      - for any natural number [n], and any tree of [nat] [t], 
+        if [p t n] is provable, [p t (S n)] is provable. 
 *)
 (** [] *)
 
@@ -1538,7 +1553,35 @@ Proof.
     induction, and state the theorem and proof in terms of this
     defined proposition.  *)
 
-(* FILL IN HERE *)
+Definition P_pa (n m p:nat) : Prop := 
+  n + (m + p) = n + m + p.
+
+Theorem plus_assoc'' : forall n m p:nat,
+  P_pa n m p.
+Proof.
+  intros n m p.
+  apply nat_ind with (P:=(fun x => P_pa x m p)).
+  Case "n = 0".
+      unfold P_pa. simpl. reflexivity.
+  Case "n = S n0".
+      intros n0 H. unfold P_pa. unfold P_pa in H. 
+      simpl. rewrite -> H. reflexivity.
+Qed.
+
+Definition P_pc (n m:nat) : Prop :=
+  n + m = m + n.
+
+Theorem plus_comm''' : forall n m:nat,
+  P_pc n m.
+Proof.
+  intros n m.
+  apply nat_ind with (P:=(fun x => P_pc x m)).
+  Case "n = 0".
+      unfold P_pc. rewrite -> plus_0_r. reflexivity.
+  Case "n = S n0".
+      intros n0 H. unfold P_pc. unfold P_pc in H.
+      simpl. rewrite -> H. rewrite -> plus_n_Sm. reflexivity.
+Qed.
 (** [] *)
 
 (* ##################################################### *)
@@ -1554,15 +1597,16 @@ Proof.
     [true_upto_n__true_everywhere] that makes
     [true_upto_n_example] work. *)
 
-(* 
-Fixpoint true_upto_n__true_everywhere 
-(* FILL IN HERE *)
+Fixpoint true_upto_n__true_everywhere (n:nat) (f:nat->Prop) :=
+  match n with
+    |O => forall m:nat, f m
+    |S n' => f n -> true_upto_n__true_everywhere n' f
+  end.
 
 Example true_upto_n_example :
     (true_upto_n__true_everywhere 3 (fun n => even n))
   = (even 3 -> even 2 -> even 1 -> forall m : nat, even m).
 Proof. reflexivity.  Qed.
-*)
 (** [] *)
 
 (* ####################################################### *)
@@ -1645,18 +1689,64 @@ Definition b_16 : beautiful 16 :=
 ]]
 *)
 
-(* FILL IN HERE *)
+Inductive pal {X:Type} : list X -> Prop :=
+  |pal_empty: pal nil
+  |pal_single: forall x:X, pal [x]
+  |pal_double: forall (x:X) (l:list X), pal l -> pal (x::(snoc l x)).
+
+
+Theorem pal_l_rev_l {X:Type}: forall l:list X,
+  pal (l ++ rev l).
+Proof.
+  intros l.
+  induction l as [| lhd ltl].
+  Case "l = []".
+      simpl. apply pal_empty.
+  Case "l = lhd::ltl".
+      simpl. apply pal_double with (x:=lhd) in IHltl.
+      rewrite <- snoc_with_append. 
+      apply IHltl.
+Qed.
+
+Theorem pal_l__l_rev_l {X:Type} : forall l:list X,
+  pal l -> l = rev l.
+Proof.
+  intros l H.
+  induction H as [|x | x' l'].
+  Case "pal_empty".
+      reflexivity.
+  Case "pal_single".
+      reflexivity.
+  Case "pal_double".
+      simpl. rewrite -> rev_snoc. simpl. rewrite <- IHpal.
+      reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 5 stars, optional (palindrome_converse) *)
-(** Using your definition of [pal] from the previous exercise, prove
+  (** Using your definition of [pal] from the previous exercise, prove
     that
 [[
      forall l, l = rev l -> pal l.
 ]]
 *)
+(**Lemma rev_rev {X:Type}: forall (x:X) (l:list X),
+  .
+Admitted.
+*)
+Theorem rev__pal: forall {X:Type} (l:list X),
+  l = rev l -> pal l.
+Proof.
+  intros X.
+  destruct l as [| lhd ltl].
+  Case "l = []".
+      intros H. apply pal_empty.
+  Case "l = lhd::ltl".
+      destruct ltl.
+          intros H. apply pal_single.
+          intros H. inversion H.                                                                         admit.
+Qed.
 
-(* FILL IN HERE *)
 (** [] *)
 
 (** **** Exercise: 4 stars (subsequence) *)
@@ -1697,7 +1787,57 @@ Definition b_16 : beautiful 16 :=
       induction carefully!
 *)
 
-(* FILL IN HERE *)
+Inductive subseq : list nat -> list nat -> Prop:=
+  |sub_nil : forall l:list nat, subseq [] l
+  |sub_hd1 : forall (n:nat) (l1 l2:list nat), subseq l1 l2 -> 
+                                              subseq l1 (n::l2)
+  |sub_hd2 : forall (n:nat) (l1 l2:list nat), subseq l1 l2 -> 
+                                              subseq (n::l1) (n::l2).
+
+Theorem subseq_refl : forall l:list nat,
+  subseq l l.
+Proof.
+  intros l.
+  induction l as [|lhd ltl].
+  Case "l = []".
+      apply sub_nil.
+  Case "l = lhd::ltl".
+      apply sub_hd2. apply IHltl.
+Qed.
+
+Theorem subseq_app : forall l1 l2 l3:list nat,
+  subseq l1 l2 -> subseq l1 (l2++l3).
+Proof.
+  intros l1 l2 l3 H.
+  induction H as [| hd l1' l2' | hd l1' l2'].
+  Case "sub_nil".
+      apply sub_nil.
+  Case "sub_hd1".
+      simpl. apply sub_hd1. apply IHsubseq.
+  Case "sub_hd2".
+      simpl. apply sub_hd2. apply IHsubseq.
+Qed.
+       
+Theorem subseq_trans : forall l1 l2 l3:list nat,
+  subseq l1 l2 -> subseq l2 l3 -> subseq l1 l3.
+Proof.
+  intros l1 l2 l3 H12 H23.
+  generalize dependent l1.
+  induction H23 as [| hd l1' l2' | hd l1' l2'].
+  Case "sub_nil".
+      intros l1 H. inversion H. apply sub_nil.
+  Case "sub_hd1".
+      intros l1 H. apply sub_hd1. apply IHsubseq. apply H.
+  Case "sub_hd2".
+      intros l1 H.
+      inversion H.
+      SCase "sub_nil".
+          apply sub_nil.
+      SCase "sub_hd1".
+          apply sub_hd1. apply IHsubseq. apply H2.
+      SCase "sub_hd2".
+          apply sub_hd2. apply IHsubseq. apply H2.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, optional (foo_ind_principle) *)
@@ -1713,15 +1853,14 @@ Definition b_16 : beautiful 16 :=
 [[
    foo_ind
         : forall (X Y : Set) (P : foo X Y -> Prop),   
-          (forall x : X, __________________________________) ->
-          (forall y : Y, __________________________________) ->
-          (________________________________________________) ->
-           ________________________________________________
+          (forall x : X, P (foo1 X Y x) ) ->
+          (forall y : Y, P (foo2 X Y y) ) ->
+          (forall (E: foo X Y) P E -> P (foo3 X Y E)) ->
+           forall E:foo X Y, P E
 ]]
 
 *)
 (** [] *)
-
 (** **** Exercise: 2 stars, optional (bar_ind_principle) *)
 (** Consider the following induction principle:
 [[
@@ -1735,9 +1874,9 @@ Definition b_16 : beautiful 16 :=
    Write out the corresponding inductive set definition.
 [[
    Inductive bar : Set :=
-     | bar1 : ________________________________________
-     | bar2 : ________________________________________
-     | bar3 : ________________________________________.
+     | bar1 : nat -> bar
+     | bar2 : bar -> bar
+     | bar3 : bool -> bar -> bar.
 ]]
 
 *)
@@ -1757,15 +1896,15 @@ Definition b_16 : beautiful 16 :=
 [[
   no_longer_than_ind
        : forall (X : Set) (P : list X -> nat -> Prop),
-         (forall n : nat, ____________________) ->
+         (forall n : nat, P [] n ) ->
          (forall (x : X) (l : list X) (n : nat),
-          no_longer_than X l n -> ____________________ -> 
-                                  _____________________________ ->
+          no_longer_than X l n -> P l n -> 
+                                  P (x::l) (S n)) ->
          (forall (l : list X) (n : nat),
-          no_longer_than X l n -> ____________________ -> 
-                                  _____________________________ ->
+          no_longer_than X l n -> P l n -> 
+                                  P l (S n)) ->
          forall (l : list X) (n : nat), no_longer_than X l n -> 
-           ____________________
+           P l n
 ]]
 
 *)
@@ -1784,10 +1923,17 @@ Definition b_16 : beautiful 16 :=
     - [R 2 [1,0]]
     - [R 1 [1,2,1,0]]
     - [R 6 [3,2,1,0]]
+
+    Provable: [R 2 [1,0]], [R 1 [1,2,1,0]].
+
+
+Lemma a : R 2 [1,0].
+Proof. apply c2. apply c2. apply c1. Qed.
+Lemma b : R 1 [1, 2, 1, 0].
+Proof. apply c3. apply c2. apply c3. apply c3. apply c2. apply c2. apply c2. apply c1. Qed.
 *)
 
 (** [] *)
-
 
 (* ##################################################### *)
 (* ##################################################### *)
