@@ -1730,22 +1730,37 @@ Qed.
      forall l, l = rev l -> pal l.
 ]]
 *)
-(**Lemma rev_rev {X:Type}: forall (x:X) (l:list X),
-  .
+
+Lemma my_list_ind : forall (X:Type) (P: list X -> Prop),
+  P [] ->
+  (forall (x:X), P [x]) ->
+  (forall (x1 x2:X) (l:list X), P l -> P (x1::snoc l x2)) ->
+  forall l:list X, P l.
 Admitted.
-*)
-Theorem rev__pal: forall {X:Type} (l:list X),
+
+Lemma snoc_ind: forall (X:Type) (P: list X -> Prop),
+  P [] ->
+  (forall (x:X) (l:list X), P l -> P (snoc l x)) ->
+  forall l:list X, P l.
+Admitted.
+
+
+
+                                      
+
+Theorem rev__pal : forall (X:Type) (l:list X),
   l = rev l -> pal l.
 Proof.
-  intros X.
-  destruct l as [| lhd ltl].
-  Case "l = []".
-      intros H. apply pal_empty.
-  Case "l = lhd::ltl".
-      destruct ltl.
-          intros H. apply pal_single.
-          intros H. inversion H.                                                                         admit.
-Qed.
+  intros x l H.
+  induction l using my_list_ind.
+  Case "".
+      apply pal_empty.
+  Case "".
+      apply pal_single.
+  Case "".
+      simpl in H. rewrite -> rev_snoc in H. inversion H.
+      apply pal_double. apply IHl. apply snoc_eq in H2. apply H2.
+Qed.     
 
 (** [] *)
 
