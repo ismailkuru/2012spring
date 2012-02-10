@@ -1734,7 +1734,7 @@ Qed.
 Lemma my_list_ind : forall (X:Type) (P: list X -> Prop),
   P [] ->
   (forall (x:X), P [x]) ->
-  (forall (x1 x2:X) (l:list X), P l -> P (x1::snoc l x2)) ->
+  (forall (x:X) (l:list X), P l -> P (x::snoc l x)) ->
   forall l:list X, P l.
 Admitted.
 
@@ -1744,9 +1744,23 @@ Lemma snoc_ind: forall (X:Type) (P: list X -> Prop),
   forall l:list X, P l.
 Admitted.
 
+Lemma snoc_eq: forall (X:Type) (x:X) (l:list X),
+  x :: snoc l x = snoc (x :: rev l) x -> l = rev l.
+Admitted.
 
+          
+Fixpoint last {X:Type} (l:list X) : option X :=
+  match l with
+    |nil => None
+    |[x] => Some x
+    |lhd::ltl => last ltl
+  end.
 
-                                      
+Definition head {X:Type} (l:list X) : option X :=
+  match l with
+    |nil => None
+    |lhd::_ => Some lhd
+  end.
 
 Theorem rev__pal : forall (X:Type) (l:list X),
   l = rev l -> pal l.
@@ -1759,7 +1773,7 @@ Proof.
       apply pal_single.
   Case "".
       simpl in H. rewrite -> rev_snoc in H. inversion H.
-      apply pal_double. apply IHl. apply snoc_eq in H2. apply H2.
+      apply pal_double. apply IHl. apply snoc_eq in H. apply H.
 Qed.     
 
 (** [] *)
