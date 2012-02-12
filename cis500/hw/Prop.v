@@ -461,7 +461,8 @@ Admitted.
 Theorem gorgeous_plus13: forall n, gorgeous n -> gorgeous (13+n).
 Proof.
   intros n H. 
-  apply g_plus5. apply g_plus5. apply g_plus3. apply H.
+  apply g_plus5 with (n:=8+n). apply g_plus5 with (n:=3+n). 
+  apply g_plus3. apply H.
 Qed.
 (** [] *)
 
@@ -483,9 +484,9 @@ Proof.
   Case "g_0".
       apply H2.
   Case "g_plus3".
-      apply g_plus3. apply IHgorgeous.
+      apply g_plus3 with (n:=n+m). apply IHgorgeous.
   Case "g_plus5".
-      apply g_plus5. apply IHgorgeous.
+      apply g_plus5 with (n:=n+m). apply IHgorgeous.
 Qed.
 (** [] *)
 
@@ -497,9 +498,9 @@ Proof.
   Case "b_0".
       apply g_0.
   Case "b_3".
-      apply g_plus3. apply g_0.
+      apply g_plus3 with (n:=0). apply g_0.
   Case "b_5".
-      apply g_plus5. apply g_0.
+      apply g_plus5 with (n:=0). apply g_0.
   Case "b".
       apply (gorgeous_sum n m IHbeautiful1 IHbeautiful2).
 Qed.
@@ -527,12 +528,12 @@ Proof.
        rewrite <- plus_assoc with (p:=0) .
        rewrite <- plus_assoc with (p:=(3+(n+0))).
        rewrite -> helper_g_times2 with (z:=3) (x:=n) (y:=n+0).
-       apply g_plus3. apply g_plus3. apply IHgorgeous.
+       apply g_plus3. apply g_plus3 with (n:=n+(n+0)). apply IHgorgeous.
    Case "g_plus5".
        rewrite <- plus_assoc with (p:=0) .
        rewrite <- plus_assoc with (p:=(5+(n+0))).
        rewrite -> helper_g_times2 with (z:=5) (x:=n) (y:=n+0).
-       apply g_plus5. apply g_plus5. apply IHgorgeous.
+       apply g_plus5. apply g_plus5 with (n:=n+(n+0)). apply IHgorgeous.
 Qed.
 (** [] *)
 
