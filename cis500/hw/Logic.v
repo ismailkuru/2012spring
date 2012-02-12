@@ -1258,14 +1258,14 @@ Inductive next_even (n:nat) : nat -> Prop :=
 (** Define an inductive relation [total_relation] that holds
     between every pair of natural numbers. *)
 
-(* FILL IN HERE *)
+Inductive total_relation : nat->nat->Prop:=
+  |tr : forall n m:nat, total_relation n m.
 (** [] *)
 
 (** **** Exercise: 2 stars (empty_relation) *)
 (** Define an inductive relation [empty_relation] (on numbers)
     that never holds. *)
-
-(* FILL IN HERE *)
+Inductive empty_relation: nat->nat->Prop:= .
 (** [] *)
 
 (** **** Exercise: 3 stars, recommended (R_provability) *)
@@ -1293,7 +1293,18 @@ Inductive R : nat -> nat -> nat -> Prop :=
       would the set of provable propositions change?  Briefly (1
       sentence) explain your answer.
 
-(* FILL IN HERE *)
+
+Answer:
+    1) [R 1 1 2] is provable by [apply (c3 (c2 c1))].
+
+    2) No change. Because in any prove for [R m n o], if there
+    is any [c5], we can drop all of them by replacing the same
+    number of [c2] with [c3] or vice versa. 
+
+    3) No change. Because for each [c4] in a proof, it should
+    be coupled with a pair of [c2] and [c3], thus, in order to drop
+    constructor [c4], we just need to drop a pair of [c2] and
+    [c3] for each [c4].
 []
 *)
 
@@ -1303,7 +1314,54 @@ Inductive R : nat -> nat -> nat -> Prop :=
     [n], and [o], and vice versa?
 *)
 
-(* FILL IN HERE *)
+Theorem R_fact: forall m n o:nat,
+  R m n o <-> m + n = o.
+Proof.
+  intros m n o.
+  split.
+  Case "->".
+      intros H.
+      induction H.
+      SCase "c1".
+          reflexivity.
+      SCase "c2".
+          simpl. rewrite -> IHR. reflexivity.
+      SCase "c3".
+          rewrite <- plus_n_Sm. rewrite -> IHR. reflexivity.
+      SCase "c4".
+          simpl in IHR. rewrite <- plus_n_Sm in IHR. inversion IHR.
+          reflexivity.
+      SCase "c4".
+          rewrite -> plus_comm. apply IHR.
+  Case "<-".
+      intros H.
+      generalize dependent m.
+      generalize dependent n.
+      induction o as [| o'].
+      SCase "o = 0".
+          intros n m HO.
+          destruct m as [| m'].
+          SSCase "m = 0".
+              rewrite -> plus_O_n in HO. rewrite -> HO. apply c1.
+          SSCase "m = S m'".
+              inversion HO.
+      SCase "o = S o'".
+          intros n m H.
+          destruct m as [| m'].
+          SSCase "m = 0".
+              rewrite -> plus_O_n in H.
+              rewrite -> H.
+              apply c3. 
+              apply IHo'.
+              rewrite -> plus_O_n. reflexivity.
+          SSCase "m = S m'".
+              simpl in H.
+              inversion H.
+              apply c2. 
+              rewrite -> H1.
+              apply IHo'.
+              apply H1.
+Qed.
 (** [] *)
 
 End R.
@@ -1314,8 +1372,8 @@ End R.
     asserts that [P] is true for every element of the list [l]. *)
 
 Inductive all (X : Type) (P : X -> Prop) : list X -> Prop :=
-  (* FILL IN HERE *)
-.
+  |all_nil : all X P []
+  |all_cons: forall (x:X) (l:list X), P x -> all X P l -> all X P (x::l).
 
 (** Recall the function [forallb], from the exercise
 [forall_exists_challenge] in [Poly.v]: *)
@@ -1333,7 +1391,32 @@ Fixpoint forallb {X : Type} (test : X -> bool) (l : list X) : bool :=
     Are there any important properties of the function [forallb] which
     are not captured by your specification? *)
 
-(* FILL IN HERE *)
+Theorem forallb_spec: forall (X:Type) (test: X -> bool) (l:list X),
+  all X (fun x=> test x = true) l <-> forallb test l = true.
+Proof.
+  intros.
+  split.
+  Case "->".
+      intros H.
+      induction H.
+      SCase "all_nil".
+          reflexivity.
+      SCase "all_cons".
+          simpl. rewrite -> IHall. rewrite -> H. reflexivity.
+  Case "<-".
+      intros H.
+      induction l as [| lhd ltl].
+      SCase "l = nil".
+          apply all_nil.
+      SCase "l = lhd::ltl".
+          simpl in H. apply andb_true__and in H. inversion H.
+          apply all_cons.
+          SSCase "P X".              
+              apply H0.
+          SSCase "all X P l".
+              apply IHltl.
+              apply H1.
+Qed.          
 (** [] *)
 
 (** **** Exercise: 4 stars, optional (filter_challenge) *)
@@ -1496,8 +1579,10 @@ Proof.
     does not stutter.) *)
 
 Inductive nostutter:  list nat -> Prop :=
- (* FILL IN HERE *)
-.
+  |ns_nil : nostutter []
+  |ns_single : forall n:nat, nostutter [n]
+  |ns_cons : forall (n m:nat) (l:list nat), (n <> m) -> nostutter (m::l)-> nostutter (n::m::l).
+
 
 (** Make sure each of these tests succeeds, but you are free
     to change the proof if the given one doesn't work for you.
@@ -1512,32 +1597,23 @@ Inductive nostutter:  list nat -> Prop :=
     tactics.  *)
 
 Example test_nostutter_1:      nostutter [3,1,4,1,5,6].
-(* FILL IN HERE *) Admitted.
-(* 
-  Proof. repeat constructor; apply beq_false_not_eq; auto. Qed.
-*)
+Proof. repeat constructor; apply beq_false_not_eq; auto. Qed.
+
 
 Example test_nostutter_2:  nostutter [].
-(* FILL IN HERE *) Admitted.
-(* 
-  Proof. repeat constructor; apply beq_false_not_eq; auto. Qed.
-*)
+Proof. repeat constructor; apply beq_false_not_eq; auto. Qed.
 
-Example test_nostutter_3:  nostutter [5].
-(* FILL IN HERE *) Admitted.
-(* 
-  Proof. repeat constructor; apply beq_false_not_eq; auto. Qed.
-*)
+
+Example test_nostutter_3:  nostutter [5]. 
+Proof. repeat constructor; apply beq_false_not_eq; auto. Qed.
+
 
 Example test_nostutter_4:      not (nostutter [3,1,1,4]).
-(* FILL IN HERE *) Admitted.
-(* 
   Proof. intro.
   repeat match goal with 
     h: nostutter _ |- _ => inversion h; clear h; subst 
   end.
   contradiction H1; auto. Qed.
-*)
 (** [] *)
 
 (** **** Exercise: 4 stars, optional (pigeonhole principle) *)
