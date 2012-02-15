@@ -1450,7 +1450,41 @@ Qed.
     for one list to be a merge of two others.  Do this with an
     inductive relation, not a [Fixpoint].)  *)
 
-(* FILL IN HERE *)
+Inductive merge (X:Type) : list X -> list X -> list X -> Prop:=
+  |m_nil: merge X nil nil nil
+  |m_cons1: forall (x:X) (l1 l2 l3:list X), merge X l1 l2 l3 -> 
+                    merge X (x::l1) l2 (x::l3)
+  |m_cons2: forall (x:X) (l1 l2 l3:list X), merge X l1 l2 l3 ->
+                    merge X l1 (x::l2) (x::l3).
+
+Check @forallb nat.
+
+Definition filter_spec (X:Type): forall (test:X -> bool) (l l1 l2:list X),
+  merge X l1 l2 l ->
+  forallb test l1 = true -> 
+  forallb (fun x=> negb (test x)) l2 = true -> 
+  filter test l = l1.
+Proof.
+  intros.
+  induction H.
+  Case "merge_nil".
+      reflexivity.
+  Case "merge_cons1".
+      simpl. simpl in H0. apply andb_true__and in H0. inversion H0.
+      rewrite -> H2. apply IHmerge in H3. rewrite -> H3. reflexivity.
+      apply H1.
+  Case "merge_cons2".
+      simpl. simpl in H1. apply andb_true__and in H1. inversion H1.
+      assert (HH: forall b:bool, negb b = true -> b = false).
+      SCase "Proof of assertion".
+          intros. destruct b.
+          SSCase "b = true".
+              inversion H4.
+          SSCase "b = false".
+              reflexivity.
+      apply HH in H2. rewrite -> H2. apply IHmerge. apply H0. 
+      apply H3.
+Qed.
 (** [] *)
 
 (** **** Exercise: 5 stars, optional (filter_challenge_2) *)
@@ -1478,18 +1512,53 @@ Inductive appears_in {X:Type} (a:X) : list X -> Prop :=
 Lemma appears_in_app : forall {X:Type} (xs ys : list X) (x:X), 
      appears_in x (xs ++ ys) -> appears_in x xs \/ appears_in x ys.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros X xs ys x.
+  generalize dependent ys.
+  induction xs as [| xhd xtl].
+  Case "xs = []".
+      intros. simpl in H.
+      right. apply H.
+  Case "xs = xhd::xtl".
+      intros. simpl in H.
+      inversion H.
+      SCase "ai_here".
+          left. apply ai_here.
+      SCase "ai_later".
+          apply IHxtl in H1. inversion H1 as [HL | HR].
+          SSCase "left".
+              left. apply (ai_later x xhd xtl HL).
+          SSCase "right".
+              right. apply HR.
+Qed.
+
 
 Lemma app_appears_in : forall {X:Type} (xs ys : list X) (x:X), 
      appears_in x xs \/ appears_in x ys -> appears_in x (xs ++ ys).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  inversion H as [HL | HR].
+  Case "left".
+      induction HL.
+      SCase "ai_here".
+          simpl. apply ai_here.
+      SCase "ai_later".
+          simpl. apply ai_later. apply IHHL. 
+          left. apply HL.
+  Case "right".
+      induction xs as [| xhd xtl].
+      SCase "xs = []". 
+          simpl. apply HR.
+      SCase "xs = xhd::xtl".
+          simpl. apply ai_later. apply IHxtl.
+          right. apply HR.
+Qed.
 
 (** Now use [appears_in] to define a proposition [disjoint X l1 l2],
     which should be provable exactly when [l1] and [l2] are
     lists (with elements of type X) that have no elements in common. *)
 
-(* FILL IN HERE *)
+Definition disjoint (X:Type) (l1 l2:list X): Prop:=
+  forall (x:X), appears_in x l1 -> not (appears_in x l2).
 
 (** Next, use [appears_in] to define an inductive proposition
     [no_repeats X l], which should be provable exactly when [l] is a
@@ -1498,7 +1567,10 @@ Proof.
     [no_repeats bool []] should be provable, while [no_repeats nat
     [1,2,1]] and [no_repeats bool [true,true]] should not be.  *)
 
-(* FILL IN HERE *)
+Inductive no_repeats (X:Type) : list X -> Prop :=
+  |nr_nil: no_repeats X nil
+  |nr_cons: forall (x:X) (l:list X), 
+    not (appears_in x l) -> no_repeats X l -> no_repeats X (x::l).
 
 (** Finally, state and prove one or more interesting theorems relating
     [disjoint], [no_repeats] and [++] (list append).  *)
