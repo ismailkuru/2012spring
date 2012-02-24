@@ -882,28 +882,38 @@ Proof.
 Theorem beq_id_eq : forall i1 i2,
   true = beq_id i1 i2 -> i1 = i2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. destruct i1. destruct i2. unfold beq_id in H.
+  symmetry in H. apply beq_nat_true_iff in H. subst. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star, optional (beq_id_false_not_eq) *)
 Theorem beq_id_false_not_eq : forall i1 i2,
   beq_id i1 i2 = false -> i1 <> i2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. destruct i1. destruct i2. unfold beq_id in H.
+  apply beq_nat_false_iff in H. unfold not. intros.
+  apply H. inversion H0. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star, optional (not_eq_beq_id_false) *)
 Theorem not_eq_beq_id_false : forall i1 i2,
   i1 <> i2 -> beq_id i1 i2 = false.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. destruct i1. destruct i2. unfold beq_id.
+  apply beq_nat_false_iff. unfold not. intros. 
+  apply H. subst. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star, optional (beq_id_sym) *)
 Theorem beq_id_sym: forall i1 i2,
   beq_id i1 i2 = beq_id i2 i1.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. destruct i1. destruct i2. 
+  unfold beq_id. apply beq_nat_sym.
+Qed.
 (** [] *)
 
 End Id.
@@ -932,7 +942,9 @@ Definition update (st : state) (X:id) (n : nat) : state :=
 Theorem update_eq : forall n X st,
   (update st X n) X = n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. unfold update. rewrite <- beq_id_refl.
+  reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star (update_neq) *)
@@ -940,7 +952,9 @@ Theorem update_neq : forall V2 V1 n st,
   beq_id V2 V1 = false ->
   (update st V2 n) V1 = (st V1).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. unfold update. rewrite -> H.
+  reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star (update_example) *)
@@ -950,14 +964,18 @@ Proof.
 Theorem update_example : forall (n:nat), 
   (update empty_state (Id 2) n) (Id 3) = 0.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. unfold update. unfold beq_id. simpl.
+  unfold empty_state. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars, recommended (update_shadow) *)
 Theorem update_shadow : forall x1 x2 k1 k2 (f : state),
    (update  (update f k2 x1) k2 x2) k1 = (update f k2 x2) k1.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. unfold update. remember (beq_id k2 k1) as EqId.
+  destruct EqId; reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars (update_same) *)
@@ -965,7 +983,13 @@ Theorem update_same : forall x1 k1 k2 (f : state),
   f k1 = x1 ->
   (update f k1 x1) k2 = f k2.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros. unfold update. remember (beq_id k1 k2) as EqId.
+  destruct EqId.
+  Case "k1 = k2".
+      apply beq_id_eq in HeqEqId. subst. reflexivity.
+  Case "k1 <> k2".
+      reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars (update_permute) *)
@@ -973,7 +997,16 @@ Theorem update_permute : forall x1 x2 k1 k2 k3 f,
   beq_id k2 k1 = false -> 
   (update (update f k2 x1) k1 x2) k3 = (update (update f k1 x2) k2 x1) k3.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  unfold update. remember (beq_id k1 k3) as Eq1.
+  remember (beq_id k2 k3) as Eq2. 
+  destruct Eq1; destruct Eq2; try reflexivity.
+  Case "k1 = k3 && k2 = k3".
+      apply beq_id_eq in HeqEq1. apply beq_id_eq in HeqEq2.
+      apply beq_id_false_not_eq in H. subst. 
+      unfold not in H. apply ex_falso_quodlibet.
+      apply H. reflexivity.
+Qed.
 (** [] *)
 
 (* ################################################### *)
@@ -1371,7 +1404,15 @@ Example ceval_example2:
     (X ::= ANum 0; Y ::= ANum 1; Z ::= ANum 2) / empty_state ||
     (update (update (update empty_state X 0) Y 1) Z 2).
 Proof. 
-  (* FILL IN HERE *) Admitted.
+  apply E_Seq with (update empty_state X 0).
+  Case "assignment".
+      apply E_Ass. reflexivity.
+  apply E_Seq with ((update (update empty_state X 0) Y 1)).
+  Case "assignment".
+      apply E_Ass. reflexivity.
+  Case "assignment".
+      apply E_Ass. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, optional (pup_to_n) *)
@@ -1381,14 +1422,34 @@ Proof.
    (this latter part is trickier than you might expect). *)
 
 Definition pup_to_n : com := 
-  (* FILL IN HERE *) admit.
+  Y ::= ANum 0;
+  WHILE BNot (BEq (AId X) (ANum 0)) DO
+      Y ::= APlus (AId Y) (AId X);
+      X ::= AMinus (AId X) (ANum 1)
+  END.
 
 Theorem pup_to_2_ceval : 
   pup_to_n / (update empty_state X 2) ||
     update (update (update (update (update (update empty_state
       X 2) Y 0) Y 2) X 1) Y 3) X 0.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  apply E_Seq with (update (update empty_state X 2) Y 0).
+  Case "assignment".
+      apply E_Ass. reflexivity.
+  Case "while".
+  apply E_WhileLoop with (update (update (update (update empty_state
+      X 2) Y 0) Y 2) X 1). reflexivity. 
+  SCase "while body".
+  apply E_Seq with (update (update (update empty_state
+      X 2) Y 0) Y 2); apply E_Ass; reflexivity.
+  Case "while".
+  apply E_WhileLoop with (update (update (update (update (update (update empty_state X 2) Y 0) Y 2) X 1) Y 3) X 0). reflexivity.
+  SCase "while body".
+  apply E_Seq with (update (update (update (update (update empty_state
+      X 2) Y 0) Y 2) X 1) Y 3); apply E_Ass; reflexivity.
+  Case "while".
+  apply E_WhileEnd. reflexivity.
+Qed.
 (** [] *)
 
 
