@@ -1535,7 +1535,16 @@ Proof.
 (** **** Exercise: 3 stars, recommended (XtimesYinZ_spec) *)
 (** State and prove a specification of [XtimesYinZ]. *)
 
-(* FILL IN HERE *)
+Theorem XtimesYinZ_spec: forall (st st':state) (n m:nat),
+  st X = n ->
+  st Y = m ->
+  (Z ::= AMult (AId X) (AId Y))/st || st' ->
+  st' Z = n*m.
+Proof.
+  intros st st' n m HX HY Heval.
+  inversion Heval. subst. clear Heval. simpl. 
+  apply update_eq.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars, recommended (loop_never_stops) *)
@@ -1548,7 +1557,12 @@ Proof.
      [loopdef] terminates.  Most of the cases are immediately
      contradictory (and so can be solved in one step with
      [inversion]). *)
-  (* FILL IN HERE *) Admitted.
+  ceval_cases (induction contra) Case; inversion Heqloopdef.
+  Case "E_WhileEnd".
+      subst. inversion H.
+  Case "E_WhileLoop".
+      subst. apply IHcontra2. reflexivity.
+Qed.  
 (** [] *)
 
 Fixpoint no_whiles (c : com) : bool :=
@@ -1808,43 +1822,86 @@ Inductive sinstr : Type :=
 Fixpoint s_execute (st : state) (stack : list nat) 
                    (prog : list sinstr) 
                  : list nat :=
-(* FILL IN HERE *) admit.
+match prog with
+  |[] => stack
+  |phd::ptl => 
+    match phd with
+      |SPush n => s_execute st (n::stack) ptl
+      |SLoad aid => s_execute st ((st aid)::stack) ptl
+      |SPlus => match stack with
+                  |a::b::rest => s_execute st ((b+a)::rest) ptl
+                  | _ => []
+                end
+      |SMinus => match stack with
+                  |a::b::rest => s_execute st ((b-a)::rest) ptl
+                  | _ => []
+                 end
+      |SMult => match stack with
+                  |a::b::rest => s_execute st ((b*a)::rest) ptl
+                  | _ => []
+                end
+    end
+end.
 
 Example s_execute1 : 
      s_execute empty_state [] 
        [SPush 5, SPush 3, SPush 1, SMinus]
    = [2, 5].
-(* FILL IN HERE *) Admitted.
+Proof.
+  simpl. reflexivity.
+Qed.
 
 Example s_execute2 : 
      s_execute (update empty_state X 3) [3,4] 
        [SPush 4, SLoad X, SMult, SPlus]
    = [15, 4].
-(* FILL IN HERE *) Admitted. 
+Proof.
+  simpl. reflexivity.
+Qed.
 
 (** Next, write a function which compiles an [aexp] into a stack
     machine program. The effect of running the program should be the
     same as pushing the value of the expression on the stack. *)
 
 Fixpoint s_compile (e : aexp) : list sinstr :=
-(* FILL IN HERE *) admit.
+  match e with
+    |ANum n => [SPush n]
+    |AId aid => [SLoad aid]
+    |APlus e1 e2 => (s_compile e1)++(s_compile e2)++[SPlus]
+    |AMinus e1 e2 => (s_compile e1)++(s_compile e2)++[SMinus]
+    |AMult e1 e2 => (s_compile e1)++(s_compile e2)++[SMult]
+  end.
 
-(* 
+
 Example s_compile1 : 
     s_compile (AMinus (AId X) (AMult (ANum 2) (AId Y)))
   = [SLoad X, SPush 2, SLoad Y, SMult, SMinus].
 Proof. reflexivity. Qed.
-*)
+
 
 (** Finally, prove the following theorem, stating that the [compile]
     function behaves correctly.  You will need to start by stating a
     more general lemma to get a usable induction hypothesis. *)
 
-(* FILL IN HERE *)
+Lemma exec_more : forall (e:aexp) (st:state) (s:list nat) (more:list sinstr),
+   s_execute st s (s_compile e ++ more) = 
+   s_execute st ((aeval st e)::s) more.
+Proof.
+  intros e.
+  aexp_cases (induction e) Case; 
+      try reflexivity;
+      try (intros; simpl; rewrite -> app_ass;
+           rewrite -> app_ass; rewrite IHe1; rewrite IHe2;
+           reflexivity).
+Qed.
 
 Theorem s_compile_correct : forall (st : state) (e : aexp),
   s_execute st [] (s_compile e) = [ aeval st e ].
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros.
+  aexp_cases (induction e) Case; 
+      try reflexivity; 
+      try (simpl; repeat (rewrite exec_more); reflexivity).
+Qed.
 (** [] *)
 
