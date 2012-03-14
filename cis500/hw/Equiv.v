@@ -1677,7 +1677,28 @@ Theorem ptwice_cequiv_pcopy :
 Proof.
   right. unfold cequiv.
   intros H.
-  
+  remember (update (update empty_state X 1) Y 2) as st2.
+  assert (ptwice / empty_state||st2).
+      Case "Proof of assertion".
+      apply E_Seq with (st':=update empty_state X 1).
+      apply E_Havoc with (n:=1). reflexivity.
+      apply E_Havoc with (n:=2). symmetry. apply Heqst2.
+  assert (~(pcopy / empty_state|| st2)). 
+      Case "Proof of assertion".
+      intros Hassert. inversion Hassert. subst.
+      inversion H3. inversion H6. subst. simpl in H11.
+      rewrite update_eq in H11.
+      assert ((update (update empty_state X n) Y n) Y = (update (update empty_state X 1) Y 2) Y).
+           rewrite H11. reflexivity.
+      rewrite update_eq in H1. rewrite update_eq in H1.
+      assert ((update (update empty_state X n) Y n) X = (update (update empty_state X 1) Y 2) X).
+           rewrite H11. reflexivity.
+      rewrite update_neq in H2. rewrite update_eq in H2. rewrite update_neq in H2. rewrite update_eq in H2. rewrite H1 in H2. inversion H2.
+      apply not_eq_beq_id_false. intros Hyx. inversion Hyx.
+      apply not_eq_beq_id_false. intros Hxy. inversion Hxy.
+  apply H in H0.
+  apply H1. assumption.
+Qed.
 (** [] *)
 
 (** The definition of program equivalence we are using here has some
