@@ -1,21 +1,61 @@
-(** * Hoare: Hoare Logic *)
+(** * HoareDec: Decorated Programs in Hoare Logic *)
 
-(* $Date: 2012-03-15 18:29:29 -0400 (Thu, 15 Mar 2012) $ *)
+(* $Date: 2012-03-21 23:35:04 -0400 (Wed, 21 Mar 2012) $ *)
 
 Require Export Hoare.
 
 (* ####################################################### *)
+(** * Review *)
+
+(** In the past chapter we've introduced Hoare Logic for the
+    language ImpList as a tool to reasoning about programs. In this
+    chapter we will explore a systematic way to use Hoare Logic to
+    prove properties about programs.  The rules of Hoare Logic are the
+    following: *)
+(**
+[[[
+             ------------------------------ (hoare_asgn)
+             {{assn_sub X a Q}} X::=a {{Q}}
+
+             --------------------  (hoare_skip)
+             {{ P }} SKIP {{ P }}
+
+               {{ P }} c1 {{ Q }} 
+               {{ Q }} c2 {{ R }}
+              ---------------------  (hoare_seq)
+              {{ P }} c1;c2 {{ R }}
+
+              {{P /\  b}} c1 {{Q}}
+              {{P /\ ~b}} c2 {{Q}}
+      ------------------------------------  (hoare_if)
+      {{P}} IFB b THEN c1 ELSE c2 FI {{Q}} 
+
+               {{P /\ b}} c {{P}}
+        -----------------------------------  (hoare_while)
+        {{P}} WHILE b DO c END {{P /\ ~b}}
+
+                {{P'}} c {{Q'}}
+                   P ~~> P'
+                   Q' ~~> Q
+         -----------------------------   (hoare_consequence)
+                {{P}} c {{Q}}
+]]]
+*)
+
+
+(* ####################################################### *)
 (** * Decorated Programs *)
 
-(** The whole point of Hoare Logic is that it is compositional -- the
+(** The beauty of Hoare Logic is that it is _compositional_ -- the
     structure of proofs exactly follows the structure of programs.
-    This fact suggests that we we could record the essential ideas of
+    This fact suggests that we could record the essential ideas of
     a proof informally (leaving out some low-level calculational
     details) by decorating programs with appropriate assertions around
     each statement.  Such a _decorated program_ carries with it
-    an (informal) proof of its own correctness.
+    an (informal) proof of its own correctness. *)
 
-   For example, here is a complete decorated program:
+(** For example, here is a complete decorated program: *)
+(**
 [[
       {{ True }} =>
       {{ x = x }}
@@ -45,19 +85,20 @@ Require Export Hoare.
     interleaved with assertions.  To check that a decorated program
     represents a valid proof, we check that each individual command is
     _locally_ consistent with its accompanying assertions in the
-    following sense:
+    following sense: *)
 
+(** 
     - [SKIP] is locally consistent if its precondition and
-      postcondition are the same
+      postcondition are the same:
 [[
           {{ P }} 
           SKIP
           {{ P }} 
 ]]
     - The sequential composition of commands [c1] and [c2] is locally
-      consistent (with respect to assertions [P] and [R]) if [c1]
-      is (with respect to [P] and [Q]) and [c2] is (with respect to
-      [Q] and [R]):
+      consistent (with respect to assertions [P] and [R]) if [c1] is
+      locally consistent (with respect to [P] and [Q]) and [c2] is
+      locally consistent (with respect to [Q] and [R]):
 [[
           {{ P }} 
           c1;
@@ -90,6 +131,7 @@ Require Export Hoare.
             c2
             {{ Q }}
           FI
+          {{ Q }}
 ]]
 
     - A while loop is locally consistent if its postcondition is
@@ -110,7 +152,12 @@ Require Export Hoare.
 [[
           {{ P }} =>
           {{ P' }} 
-]]          
+]]
+
+      This corresponds to the application of [hoare_consequence] and
+      is the only place in a decorated program where checking if the
+      decorations are correct is not fully mechanic and syntactic, but
+      it involves logical and maybe arithmetic reasoning.
 *)
 
 (* ####################################################### *)
@@ -119,24 +166,61 @@ Require Export Hoare.
 (* ####################################################### *)
 (** ** Example: Slow Subtraction *)
 
-(** Informally:
-[[
-      {{ X = x /\ Z = z }} =>
-      {{ Z - X = z - x }}
-    WHILE X <> 0 DO
-        {{ Z - X = z - x /\ X <> 0 }} =>
-        {{ (Z - 1) - (X - 1) = z - x }}
-      Z ::= Z - 1;
-        {{ Z - (X - 1) = z - x }}
-      X ::= X - 1
-        {{ Z - X = z - x }} 
-    END
-      {{ Z - X = z - x /\ ~ (X <> 0) }} =>
-      {{ Z = z - x }}
-]]
-*)
+(** We've seen an Imp program for subtracting one number from another by 
+    repeatedly subtracting one from each number until the one being 
+    subtracted reaches zero.
 
-(** Formally: *)
+    Here is a full proof -- presented as a decorated program -- that this 
+    program meets a natural specification:
+[[
+    (1)      {{ X = x /\ Z = z }} =>                      
+    (2)      {{ Z - X = z - x }}                      
+           WHILE X <> 0 DO                            
+    (3)        {{ Z - X = z - x /\ X <> 0 }} =>       
+    (4)        {{ (Z - 1) - (X - 1) = z - x }}        
+             Z ::= Z - 1;
+    (5)        {{ Z - (X - 1) = z - x }}              
+             X ::= X - 1
+    (6)        {{ Z - X = z - x }}                    
+           END
+    (7)      {{ Z - X = z - x /\ ~ (X <> 0) }} =>     
+    (8)      {{ Z = z - x }}                          
+]]
+    The decorations were constructed as follows:
+      - Begin with the undecorated program (the unnumbered lines).
+      - Add the specification -- i.e., the outer precondition (1) and
+        postcondition (8).
+      - Write down the invariant of the loop (6).
+      - Following the format dictated by the [hoare_while] rule, add
+        the final use of the rule of consequence -- the assertion in
+        line (7) and the check that (7) implies (8).
+      - Check that the loop invariant _is_ an invariant of the loop
+        body by using the assignment rule twice to push the invariant
+        backwards from the end of the loop body to the
+        beginning (line (5) and then line (4)), and then filling in
+        the rule of consequence asserting that the invariant plus the
+        fact that the loop guard is true (line (3)) implies line (4).
+      - Check that the invariant is established at the beginning of
+        the loop verifying that line (2) is implied by line (1).
+
+    As in most Hoare Logic proofs, the only challenging part of this
+    process is finding the right loop invariant.  There is no
+    foolproof procedure for this, but a helpful heuristic is to begin
+    by assumimng that the loop invariant is exactly the desired
+    postcondition (i.e., that lines (6) and (8) are the same) and then
+    calculating a bit to find out why this assertion is _not_ an
+    invariant of the loop body.  
+
+    In this case, it quickly becomes clear that assertion (8) is not
+    an invariant of the loop body because the loop body changes the
+    variable [Z], but (obviously) not the global constants [x] and
+    [z].  So we need to generalize (8) to some statement that is
+    equivalent to (8) when [X] is [0], since this will be the case
+    when the loop terminates, and that "fills the gap" in some
+    appropriate way when [X] is nonzero. *)
+
+(** From this informal proof, it is now easy to read off a formal
+    proof in terms of the Hoare rules: *)
 
 Definition subtract_slowly : com :=
   WHILE BNot (BEq (AId X) (ANum 0)) DO
@@ -175,12 +259,13 @@ Proof.
        informal proof) *)
     unfold subtract_slowly_invariant, assn_sub, update, bassn. simpl.
     intros st [Inv GuardTrue].
-    (* There are several ways to do the case analysis here...this 
-       one is fairly general: *)
-    remember (beq_nat (asnat (st X)) 0) as Q; destruct Q. 
-     inversion GuardTrue.
-     symmetry in HeqQ.  apply beq_nat_false in HeqQ. 
-     omega. (* slow but effective! *)
+    (* Could alternatively do case analysis on 
+        negb (beq_nat (asnat (st X)) 0) here;
+        but SearchAbout reveals some nice lemmas *)
+    SearchAbout [negb true]. rewrite negb_true_iff in GuardTrue.
+    SearchAbout [beq_nat false]. apply beq_nat_false in GuardTrue.
+    omega. (* slow but effective! *)
+    (* Faster variant: rewrite <- Inv. clear Inv. omega. *)
   Case "Initial state satisfies invariant".
     (* This is the subgoal generated by the precondition part of our
        first use of hoare_consequence.  It's the first implication
@@ -195,16 +280,16 @@ Proof.
     intros st [Inv GuardFalse].
     unfold subtract_slowly_invariant in Inv.
     unfold bassn in GuardFalse. simpl in GuardFalse.
-    (* Here's a slightly different alternative for the case analysis that
-       works out well here (but is less general)... *)
-    destruct (asnat (st X)). 
-      omega. 
-      apply ex_falso_quodlibet.   apply GuardFalse. reflexivity. 
-    Qed.
+    (* SearchAbout helps again to find the right lemmas *)
+    SearchAbout [not true]. rewrite not_true_iff_false in GuardFalse. 
+    SearchAbout [negb false]. rewrite negb_false_iff in GuardFalse.
+    SearchAbout [beq_nat true]. apply beq_nat_true in GuardFalse.
+    omega. Qed.
 
 (* ####################################################### *)
 (** ** Exercise: Reduce to Zero *)
 
+(** **** Exercise: 2 stars (reduce_to_zero_correct) *)
 (** Here is a while loop that is so simple it needs no invariant: 
 [[
           {{ True }}
@@ -217,11 +302,10 @@ Proof.
           {{ True /\ X = 0 }} =>
           {{ X = 0 }}
 ]]
-   Your job is to translate this proof to Coq.  It may help to look
-   at the [slow_subtraction] proof for ideas.
+   Your job is to translate this proof to Coq.  Refer to the
+   [slow_subtraction] example for ideas.
 *)
 
-(** **** Exercise: 2 stars (reduce_to_zero_correct) *)
 Definition reduce_to_zero : com :=
   WHILE BNot (BEq (AId X) (ANum 0)) DO
     X ::= AMinus (AId X) (ANum 1)
@@ -232,7 +316,21 @@ Theorem reduce_to_zero_correct :
   reduce_to_zero
   {{fun st => asnat (st X) = 0}}.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  unfold reduce_to_zero. 
+  eapply hoare_consequence_post.
+  eapply hoare_while.  
+  eapply hoare_consequence_pre.
+  apply hoare_asgn.
+  Case "Proof of True /\ X <> 0 => True".
+  unfold bassn, assn_sub, assert_implies. simpl. 
+  intros st [Inv GuardTrue]. assumption.
+  Case "Proof of True /\ ~(X <> 0) => X = 0".
+  unfold bassn, assert_implies. simpl.
+  intros st [Inv GuardFalse].
+  SearchAbout [negb true]. apply eq_true_negb_classical in GuardFalse.
+  SearchAbout [beq_nat true]. apply beq_nat_true in GuardFalse.
+  assumption.
+Qed.
 (** [] *)
 
 (* ####################################################### *)
@@ -253,24 +351,69 @@ Definition add_slowly : com :=
     specification of [add_slowly]; then (informally) decorate the
     program accordingly. *)
 
-(* FILL IN HERE *)
+(* 
+   {{X = x /\ Z = z}}=>
+   {{X + Z = x + z}}
+  WHILE !(X == 0) DO
+   {{X + Z = x + z /\ X <> 0}}=>
+   {{X + Z = x + z}}
+    Z ::= Z + 1;
+   {{X + (Z + 1) = x + z}}
+    X ::= X - 1;
+   {{X - 1 + (Z + 1) = x + z}} =>
+   {{X + Z = x + z}}
+  END.
+   {{X + Z = x + z /\ ~(X <> 0)}}
+   {{Z = x + z}}
+*)
 (** [] *)
 
 (** **** Exercise: 3 stars (add_slowly_formal) *)
 (** Now write down your specification of [add_slowly] formally, as a
     Coq [Hoare_triple], and prove it valid. *)
 
-(* FILL IN HERE *)
+Definition add_slowly_invariant x z :=
+  fun st => plus (asnat (st X)) (asnat (st Z)) = plus x z.
+
+Theorem add_slowly_correct : forall x z,
+  {{fun st => asnat (st X) = x /\ asnat (st Z) = z}}
+  add_slowly
+  {{fun st => asnat (st Z) = plus x z}}.
+Proof.
+  intros x z. unfold add_slowly.
+  eapply hoare_consequence with (P':= add_slowly_invariant x z).
+  apply hoare_while.
+  Case "Proof while body invariant".
+  eapply hoare_seq. apply hoare_asgn.
+  eapply hoare_consequence_pre. apply hoare_asgn.
+  SCase "inv /\ B => X + Z = x + z".
+      unfold add_slowly_invariant, bassn, assn_sub, 
+             update, assert_implies. 
+      simpl. 
+      intros st [inv GuardTrue]. 
+      SearchAbout [negb true]. apply negb_true_iff in GuardTrue.
+      SearchAbout [beq_nat false]. apply beq_nat_false in GuardTrue.
+      omega.
+  Case "X = x /\ Z = z => X + Z = x + z".
+  unfold add_slowly_invariant, assert_implies.
+  intros st [HX HZ]. omega.
+  Case "inv /\ not B => Z = x + z".
+  unfold add_slowly_invariant, assert_implies, bassn. simpl.
+  intros st [inv GuardFalse].
+  SearchAbout [negb true]. apply eq_true_negb_classical in GuardFalse.
+  apply beq_nat_true in GuardFalse.
+  omega.
+Qed.
 (** [] *)
 
 (* ####################################################### *)
 (** ** Example: Parity *)
 
 (** Here's another, slightly trickier example.  Make sure you
-    understand the decorated program completely.  Understanding
-    all the details of the Coq proof is not required, though it
-    is not actually very hard -- all the required ideas are
-    already in the informal version. *)
+    understand the decorated program completely.  You may find it
+    instructive to start with the bare program and try to fill in the
+    decorations yourself.  Notice exactly where the condition [X<=x]
+    comes up. *)
 (** 
 [[
     {{ X = x }} =>
@@ -291,6 +434,11 @@ Definition add_slowly : com :=
 ]]
 *)
 
+(** And here is the formal version of this proof.  Skim them,
+    but you do not need to understand every detail (though the details
+    are not actually very hard), since all the important ideas are
+    already in the informal version. *)
+
 Definition find_parity : com :=
   Y ::= (ANum 0);
   WHILE (BNot (BEq (AId X) (ANum 0))) DO
@@ -301,9 +449,11 @@ Definition find_parity : com :=
 Definition find_parity_invariant x := 
   fun st => 
        asnat (st X) <= x
-    /\ (asnat (st Y) = 0 /\ ev (x - asnat (st X)) \/ asnat (st Y) = 1 /\ ~ev (x - asnat (st X))). 
+    /\ (   asnat (st Y) = 0 /\ ev (x - asnat (st X)) 
+        \/ asnat (st Y) = 1 /\ ~ev (x - asnat (st X))). 
 
-(* It turns out that we'll need the following lemma... *)
+(** We'll need the following lemma... *)
+
 Lemma not_ev_ev_S_gen: forall n,
   (~ ev n -> ev (S n)) /\
   (~ ev (S n) -> ev (S (S n))).
@@ -391,7 +541,7 @@ Proof.
     left. split. reflexivity.
     apply ev_0.  Qed.
 
-(** **** Exercise: 3 stars (wrong_find_parity_invariant) *)
+(** **** Exercise: 2 stars (wrong_find_parity_invariant) *)
 (** A plausible first attempt at stating an invariant for [find_parity]
     is the following. *)
 
@@ -404,11 +554,16 @@ Definition find_parity_invariant' x :=
     goes wrong.  Just think about whether the loop body actually
     preserves the property.) *)
 
-(* FILL IN HERE *)
+(* Because if the state [st] makes [x < X], [x - asnat (st X ) = 0]
+   for all the time, then ev (x - X) and ev (x - (X - 1)) both hold
+   at any point, we will have [Y = 0] and [1 - Y = 0]*)
 (** [] *)
 
 (* ####################################################### *) 
 (** ** Example: Finding Square Roots *)
+
+(** Here's another example, starting with the formal version this
+    time. *)
 
 Definition sqrt_loop : com :=
   WHILE BLe (AMult (APlus (ANum 1) (AId Z)) 
@@ -475,7 +630,6 @@ Proof.
     unfold sqrt_com.
     apply hoare_seq with (Q := fun st => asnat (st X) = x 
                                       /\ asnat (st Z) = 0).
-
     SCase "sqrt_loop".
       unfold sqrt_loop.
       eapply hoare_consequence.
@@ -518,11 +672,18 @@ Proof.
     intros st H.
     unfold assn_sub. rewrite update_eq. reflexivity. Qed.
 
-(** **** Exercise: 3 stars, optional (sqrt_informal) *)
-(** Write a decorated program corresponding to the above
+(** **** Exercise: 3 stars (sqrt_informal) *)
+(** Write an informal decorated program corresponding to this formal
     correctness proof. *)
 
-(* FILL IN HERE *)
+(* 
+   {{fun st => True}} 
+   X := x; 
+   sqrt_com 
+   {{sqrt_spec x}}.
+
+
+ *)
 (** [] *)
 
 (* ####################################################### *)
@@ -530,13 +691,15 @@ Proof.
 
 Module Factorial.
 
+(** Recall the mathematical factorial function... *)
+
 Fixpoint real_fact (n:nat) : nat :=
   match n with
   | O => 1
   | S n' => n * (real_fact n')
   end.
 
-(** Recall the factorial Imp program: *)
+(** ... and the Imp program that we wrote to calculate factorials: *)
 
 Definition fact_body : com :=
   Y ::= AMult (AId Y) (AId Z);
@@ -554,9 +717,9 @@ Definition fact_com : com :=
 
 (** **** Exercise: 3 stars, optional (fact_informal) *)
 (** Decorate the [fact_com] program to show that it satisfies the
-    specification given by the pre and postconditions below.  Just as
-    we have done above, you may elide the algebraic reasoning about
-    arithmetic, the less-than relation, etc., that is (formally)
+    specification given by the pre and postconditions below.  As
+    usual, feel free to elide the algebraic reasoning about
+    arithmetic, the less-than relation, etc., that is formally
     required by the rule of consequence:
 
 (* FILL IN HERE *)
@@ -591,36 +754,10 @@ End Factorial.
 (* ####################################################### *)
 (** ** Reasoning About Programs with Lists *)
 
-(** **** Exercise: 3 stars (list_sum) *)
-(** Here is a direct definition of the sum of the elements of a list,
-    and an Imp program that computes the sum. *)
-
-Definition sum l := fold_right plus 0 l.
-
-Definition sum_program :=
-  Y ::= ANum 0;
-  WHILE (BIsCons (AId X)) DO 
-    Y ::= APlus (AId Y) (AHead (AId X)) ;
-    X ::= ATail (AId X)
-  END. 
-
-(** Provide an _informal_ proof of the following specification of
-    [sum_program] in the form of a decorated version of the
-    program. *)
-
-Definition sum_program_spec := forall l,
-  {{ fun st => aslist (st X) = l }}
-  sum_program
-  {{ fun st => asnat (st Y) = sum l }}.
-
-(* FILL IN HERE *)
-(** [] **)
-
-(** Next, let's look at a _formal_ Hoare Logic proof for a program
-    that deals with lists.  We will verify the following program,
-    which checks if the number [Y] occurs in the list [X], and if so sets
-    [Z] to [1].
-*)
+(** Now let's look at a formal Hoare Logic proof for a program that
+    works with lists.  We will verify the following program, which
+    checks if the number [Y] occurs in the list [X], and if so sets
+    [Z] to [1]. *)
 
 Definition list_member :=
   WHILE BIsCons (AId X) DO
@@ -632,12 +769,26 @@ Definition list_member :=
     X ::= ATail (AId X)
   END.
 
-Definition list_member_spec := forall l n,
-  {{ fun st => st X = VList l /\ st Y = VNat n /\ st Z = VNat 0 }}
-  list_member
-  {{ fun st => st Z = VNat 1 <-> appears_in n l }}.
+(** As usual, the only interesting aspect of the proof of correctness
+    is finding the loop invariant.  The intuition here is exactly the
+    same as for the loops we've seen above, where some variable counts
+    down until it reaches zero; the only difference is that instead of
+    a number, we're processing a list.  The final command [X ::=
+    ATail (AId X)] can be thought of as "decrementing" [X].
 
-(** The proof we will use, written informally, looks as follows:
+    Intuitively, the invariant of this loop is that the variable [Z]
+    is set to [1] iff some _previous_ iteration of the loop has found
+    the value [n] -- i.e., if [n] appears in the prefix of the
+    originally list that has already beem processed and discarded.  To
+    state this precisely, we need a way of talking about the discarded
+    prefix.  One way is to say that, at each iteration of the loop,
+    there is some list [p] that can be appended to the elements still
+    in [X] to get back the original list [l].  This leads to the
+    following loop invariant:
+[[
+      exists p, p ++ X = l /\ (Z = 1 <-> appears_in n p)
+]]
+    The complete informal proof looks like this:
 [[
     {{ X = l /\ Y = n /\ Z = 0 }} =>
     {{ Y = n /\ exists p, p ++ X = l /\ (Z = 1 <-> appears_in n p) }}
@@ -675,27 +826,18 @@ Definition list_member_spec := forall l n,
         /\ ~ (BIsCons X) }} => 
      {{ Z = 1 <-> appears_in n l }}
 ]]
+*)
 
-  The only interesting part of the proof is the choice of loop invariant:
-[[
-      exists p, p ++ X = l /\ (Z = 1 <-> appears_in n p)
-]]
-  This states that at each iteration of the loop, the original list
-  [l] is equal to the append of the current value of [X] and some
-  other list [p] which is not the value of any variable in the
-  program, but keeps track of enough information from the original
-  state to make the proof go through. (Such a [p] is sometimes called
-  a "ghost variable").
-
-  In order to show that such a list [p] exists, in each iteration we
-  add the head of [X] to the _end_ of [p]. This needs the function
-  [snoc], from Poly.v. *)
+(** For the formal realization of this proof, we'll need the function
+    [snoc], from Poly.v. *)
 
 Fixpoint snoc {X:Type} (l:list X) (v:X) : (list X) := 
   match l with
   | nil      =>  [ v ]
   | cons h t => h :: (snoc t v)
   end.
+
+(** We will also need several lemmas about [snoc] and [++]. *)
 
 Lemma snoc_equation : forall (A : Type) (h:A) (x y : list A),
   snoc x h ++ y = x ++ h :: y.     
@@ -705,8 +847,6 @@ Proof.
     Case "x = []". reflexivity.
     Case "x = cons". simpl. rewrite IHx. reflexivity.
 Qed.
-
-(** The main proof uses various lemmas. *)
 
 Lemma appears_in_snoc1 : forall a l,
   appears_in a (snoc l a).
@@ -757,37 +897,23 @@ Proof.
     simpl. rewrite IHl. reflexivity.
 Qed.
 
-Lemma beq_true__eq : forall n n',
-  beq_nat n n' = true ->
-  n = n'.
-Proof.
-  induction n; destruct n'.
-  Case "n = 0, n' = 0".     reflexivity.
-  Case "n = 0, n' = S _".   simpl. intros H. inversion H.
-  Case "n = S, n' = 0".     simpl. intros H. inversion H.
-  Case "n = S, n' = S".     simpl. intros H.
-                            rewrite (IHn n' H). reflexivity.
-Qed.
-
-Lemma beq_nat_refl : forall n,
-  beq_nat n n = true.
-Proof.
-  induction n. 
-    reflexivity.
-    simpl. assumption.
-Qed.
+(** The proof itself is a bit long, but there is nothing fundamentally
+    difficult about it, once we've understood how to construct the
+    informal decorated program on which it's based.  (We'll see later
+    in the chapter how it can be substantially shortened with some
+    better automation.) *)
 
 Theorem list_member_correct : forall l n,
-  {{ fun st => st X = VList l /\ st Y = VNat n /\ st Z = VNat 0 }}
+  {{ fun st => aslist (st X) = l /\ asnat (st Y) = n /\ asnat (st Z) = 0 }}
   list_member
-  {{ fun st => st Z = VNat 1 <-> appears_in n l }}.
+  {{ fun st => asnat (st Z) = 1 <-> appears_in n l }}.
 Proof.
   intros l n.
   eapply hoare_consequence.
   apply hoare_while with (P := fun st =>
-     st Y = VNat n 
+     asnat (st Y) = n 
      /\ exists p, p ++ aslist (st X) = l 
-                  /\ (st Z = VNat 1 <-> appears_in n p)).
+                  /\ (asnat (st Z) = 1 <-> appears_in n p)).
     (* The loop body preserves the invariant: *)
     eapply hoare_seq.
     apply hoare_asgn.
@@ -801,20 +927,18 @@ Proof.
         rewrite update_neq; try reflexivity.  
         rewrite update_neq; try reflexivity.
         assumption.
-      (* and the interesting part of the invariant is preserved: *)
+        (* and the interesting part of the invariant is preserved: *)
         (* X has to be a cons *)
         remember (aslist (st X)) as x.
         destruct x as [|h x'].
           unfold bassn in H9. unfold beval in H9. unfold aeval in H9. 
           rewrite <- Heqx in H9. inversion H9.
-         
           exists (snoc p h).
           rewrite update_eq.
           unfold aeval. rewrite update_neq; try reflexivity. 
           rewrite <- Heqx.
           split.
             rewrite snoc_equation. assumption.
-
             rewrite update_neq; try reflexivity.
             rewrite update_eq. 
             split. 
@@ -822,9 +946,8 @@ Proof.
               unfold bassn in H10. unfold beval in H10.
               unfold aeval in H10. rewrite H1 in H10. 
               rewrite <- Heqx in H10. simpl in H10.
-              rewrite (beq_true__eq _ _ H10).
+              rewrite (beq_nat_true _ _ H10).
               intros. apply appears_in_snoc1.
-                
               intros. reflexivity.
     Case "If not taken".
       eapply hoare_consequence_pre. apply hoare_skip.
@@ -840,27 +963,25 @@ Proof.
         destruct x as [|h x'].
           unfold bassn in H9. unfold beval in H9. unfold aeval in H9. 
           rewrite <- Heqx in H9. inversion H9.
-
           exists (snoc p h).
           split.
             rewrite update_eq.
             unfold aeval. rewrite <- Heqx.
             rewrite snoc_equation. assumption.
-
             rewrite update_neq; try reflexivity.
             split.
-              intros. apply appears_in_snoc2. apply H3. assumption.
-
-              intros.  destruct (appears_in_snoc3 _ _ _ H).
-              SCase "later".
-                inversion H3 as [_ H3'].
-                apply H3'. assumption.
-              SCase "here (absurd)".
-                subst.
-                unfold bassn in H10. unfold beval in H10. unfold aeval in H10.
-                rewrite <- Heqx in H10. rewrite H1 in H10.
-                simpl in H10. rewrite beq_nat_refl in H10.
-                apply ex_falso_quodlibet. apply H10. reflexivity.
+            intros. apply appears_in_snoc2. apply H3. assumption.
+            intros.  destruct (appears_in_snoc3 _ _ _ H).
+            SCase "later".
+              inversion H3 as [_ H3'].
+              apply H3'. assumption.
+            SCase "here (absurd)".
+              subst.
+              unfold bassn, beval, aeval in H10.
+              rewrite not_true_iff_false in H10.
+              apply beq_nat_false in H10. 
+              rewrite <- Heqx in H10. simpl in H10.
+              apply ex_falso_quodlibet. apply H10. assumption.
   (* The invariant holds at the start of the loop: *)
   intros st [H1 [H2 H3]]. 
   rewrite H1. rewrite H2. rewrite H3.
@@ -877,11 +998,35 @@ Proof.
     rewrite append_nil in H2.
     rewrite <- H2.
     assumption.
-
     apply ex_falso_quodlibet. apply H5. reflexivity.
 Qed.
 
-(** **** Exercise: 4 stars, optional (list_reverse) *)
+(** **** Exercise: 3 stars (list_sum) *)
+(** Here is a direct definition of the sum of the elements of a list,
+    and an Imp program that computes the sum. *)
+
+Definition sum l := fold_right plus 0 l.
+
+Definition sum_program :=
+  Y ::= ANum 0;
+  WHILE (BIsCons (AId X)) DO 
+    Y ::= APlus (AId Y) (AHead (AId X)) ;
+    X ::= ATail (AId X)
+  END. 
+
+(** Provide an _informal_ proof of the following specification of
+    [sum_program] in the form of a decorated version of the
+    program. *)
+
+Definition sum_program_spec := forall l,
+  {{ fun st => aslist (st X) = l }}
+  sum_program
+  {{ fun st => asnat (st Y) = sum l }}.
+
+(* FILL IN HERE *)
+(** [] **)
+
+(** **** Exercise: 4 stars (list_reverse) *)
 (** Recall the function [rev] from Poly.v, for reversing lists. *)
 
 Fixpoint rev {X:Type} (l:list X) : list X := 
@@ -917,8 +1062,8 @@ Qed.
 (** The informal conventions for decorated programs amount to a way of
     displaying Hoare triples in which commands are annotated with
     enough embedded assertions that checking the validity of the
-    triple is reduced to simple algebraic calculations showing that
-    some assertions were stronger than others.
+    triple is reduced to simple logical and algebraic calculations
+    showing that some assertions imply others.
 
     In this section, we show that this informal presentation style can
     actually be made completely formal.  *)
@@ -926,14 +1071,15 @@ Qed.
 (** ** Syntax *)
 
 (** The first thing we need to do is to formalize a variant of the
-    syntax of commands that includes embedded assertions.  We call the
-    new commands _decorated commands_, or [dcom]s. *)
+    syntax of commands with embedded assertions.  We call the new
+    commands _decorated commands_, or [dcom]s. *)
 
 Inductive dcom : Type :=
   | DCSkip :  Assertion -> dcom
   | DCSeq : dcom -> dcom -> dcom
   | DCAsgn : id -> aexp ->  Assertion -> dcom
-  | DCIf : bexp ->  Assertion -> dcom ->  Assertion -> dcom -> dcom
+  | DCIf : bexp ->  Assertion -> dcom ->  Assertion -> dcom
+           -> Assertion-> dcom
   | DCWhile : bexp -> Assertion -> dcom -> Assertion -> dcom
   | DCPre : Assertion -> dcom -> dcom
   | DCPost : dcom -> Assertion -> dcom.
@@ -953,8 +1099,8 @@ Notation "l '::=' a {{ P }}"
 Notation "'WHILE' b 'DO' {{ Pbody }} d 'END' {{ Ppost }}" 
       := (DCWhile b Pbody d Ppost) 
       (at level 80, right associativity) : dcom_scope.
-Notation "'IFB' b 'THEN' {{ P }} d 'ELSE' {{ P' }} d' 'FI'" 
-      := (DCIf b P d P' d') 
+Notation "'IFB' b 'THEN' {{ P }} d 'ELSE' {{ P' }} d' 'FI' {{ Q }}" 
+      := (DCIf b P d P' d' Q) 
       (at level 80, right associativity)  : dcom_scope.
 Notation "'=>' {{ P }} d" 
       := (DCPre P d) 
@@ -983,14 +1129,15 @@ Delimit Scope dcom_scope with dcom.
     precondition at the very top of the program. *)
 
 Example dec_while : dcom := (
-    {{ fun st => True }}
+  {{ fun st => True }}
   WHILE (BNot (BEq (AId X) (ANum 0))) 
   DO
-       {{ fun st => ~(asnat (st X) = 0) }}
-      X ::= (AMinus (AId X) (ANum 1)) 
-       {{ fun _ => True }}
+    {{ fun st => True /\ bassn (BNot (BEq (AId X) (ANum 0))) st}}
+    X ::= (AMinus (AId X) (ANum 1)) 
+    {{ fun _ => True }}
   END
-    {{ fun st => asnat (st X) = 0 }}
+  {{ fun st => True /\ ~bassn (BNot (BEq (AId X) (ANum 0))) st}} =>
+  {{ fun st => asnat (st X) = 0 }}
 ) % dcom.
 
 (** It is easy to go from a [dcom] to a [com] by erasing all
@@ -998,13 +1145,13 @@ Example dec_while : dcom := (
 
 Fixpoint extract (d:dcom) : com :=
   match d with
-  | DCSkip _          => SKIP
-  | DCSeq d1 d2       => (extract d1 ; extract d2) 
-  | DCAsgn X a _      => X ::= a
-  | DCIf b _ d1 _ d2  => IFB b THEN extract d1 ELSE extract d2 FI
-  | DCWhile b _ d _   => WHILE b DO extract d END
-  | DCPre _ d         => extract d
-  | DCPost d _        => extract d
+  | DCSkip _           => SKIP
+  | DCSeq d1 d2        => (extract d1 ; extract d2) 
+  | DCAsgn X a _       => X ::= a
+  | DCIf b _ d1 _ d2 _ => IFB b THEN extract d1 ELSE extract d2 FI
+  | DCWhile b _ d _    => WHILE b DO extract d END
+  | DCPre _ d          => extract d
+  | DCPost d _         => extract d
   end.
 
 (** The choice of exactly where to put assertions in the definition of
@@ -1035,7 +1182,7 @@ Fixpoint post (d:dcom) : Assertion :=
   | DCSkip P                => P
   | DCSeq d1 d2             => post d2
   | DCAsgn X a Q            => Q
-  | DCIf  _ _ d1 _ d2       => post d1  
+  | DCIf  _ _ d1 _ d2 Q     => Q
   | DCWhile b Pbody c Ppost => Ppost
   | DCPre _ d               => post d
   | DCPost c Q              => Q
@@ -1049,7 +1196,7 @@ Fixpoint pre (d:dcom) : Assertion :=
   | DCSkip P                => fun st => True
   | DCSeq c1 c2             => pre c1
   | DCAsgn X a Q            => fun st => True
-  | DCIf  _ _ t _ e         => fun st => True
+  | DCIf  _ _ t _ e _       => fun st => True
   | DCWhile b Pbody c Ppost => fun st => True
   | DCPre P c               => P
   | DCPost c Q              => pre c
@@ -1072,9 +1219,9 @@ Definition dec_correct (d:dcom) :=
 (** To check whether this Hoare triple is _valid_, we need a way to
     extract the "proof obligations" from a decorated program.  These
     obligations are often called _verification conditions_, because
-    they are the facts that must be verified (by some process looking
-    at the decorated program) to see that the decorations are
-    logically consistent and thus add up to a proof of correctness. *)
+    they are the facts that must be verified to see that the
+    decorations are logically consistent and thus add up to a complete
+    proof of correctness. *)
 
 (** ** Extracting Verification Conditions *)
 
@@ -1097,18 +1244,18 @@ Fixpoint verification_conditions (P : Assertion) (d:dcom) : Prop :=
       /\ verification_conditions (post d1) d2
   | DCAsgn X a Q      => 
       (P ~~> assn_sub X a Q)
-  | DCIf b P1 t P2 e  => 
+  | DCIf b P1 d1 P2 d2 Q => 
       ((fun st => P st /\ bassn b st) ~~> P1)
       /\ ((fun st => P st /\ ~ (bassn b st)) ~~> P2)
-      /\ (post t = post e)
-      /\ verification_conditions P1 t
-      /\ verification_conditions P2 e
+      /\ (Q = post d1) /\ (Q = post d2)
+      /\ verification_conditions P1 d1
+      /\ verification_conditions P2 d2
   | DCWhile b Pbody d Ppost      => 
       (* post d is the loop invariant and the initial precondition *)
       (P ~~> post d)  
-      /\ ((fun st => post d st /\ bassn b st) <~~> Pbody)  
-      /\ ((fun st => post d st /\ ~(bassn b st)) <~~> Ppost)  
-      /\ verification_conditions (fun st => post d st /\ bassn b st) d
+      /\ (Pbody = (fun st => post d st /\ bassn b st))
+      /\ (Ppost = (fun st => post d st /\ ~(bassn b st)))
+      /\ verification_conditions Pbody d
   | DCPre P' d         => 
       (P ~~> P') /\ verification_conditions P' d
   | DCPost d Q        => 
@@ -1143,19 +1290,19 @@ Proof.
     eapply hoare_consequence_pre.
       apply hoare_asgn.
       assumption.
-  Case "If". 
-    inversion H as [HPre1 [HPre2 [HQeq [HThen HElse]]]]; clear H.
+  Case "If".
+    inversion H as [HPre1 [HPre2 [Hd1 [Hd2 [HThen HElse]]]]]; clear H.
+    subst.
     apply hoare_if.
-      eapply hoare_consequence_pre. apply IHd1. apply HThen. assumption.     
-      simpl. rewrite HQeq.
-      eapply hoare_consequence_pre. apply IHd2. apply HElse. assumption.
+      eapply hoare_consequence_pre. apply IHd1. eassumption. assumption.
+      rewrite Hd2.
+      eapply hoare_consequence_pre. apply IHd2. eassumption. assumption.
   Case "While".
-    rename a into Pbody. rename a0 into Ppost.
-    inversion H as [Hpre [Hbody [Hpost Hd]]]; clear H. 
-    eapply hoare_consequence.
+    inversion H as [Hpre [Hbody [Hpost Hd]]]; subst; clear H.
+    eapply hoare_consequence_pre.
     apply hoare_while with (P := post d). 
       apply IHd. apply Hd. 
-      assumption. apply Hpost.
+      assumption.
   Case "Pre".
     inversion H as [HP Hd]; clear H. 
     eapply hoare_consequence_pre. apply IHd. apply Hd. assumption.
@@ -1171,14 +1318,16 @@ Qed.
 
 Eval simpl in (verification_conditions (fun st => True) dec_while).
 (* ====>
+ = (((fun _ : state => True) ~~> (fun _ : state => True)) /\
     ((fun _ : state => True) ~~> (fun _ : state => True)) /\
-    ((fun _ : state => True) ~~> (fun _ : state => True)) /\
-    ((fun st : state => True /\ bassn (BNot (BEq (AId X) (ANum 0))) st) 
-     <~~> (fun st : state => asnat (st X) <> 0)) /\
-    ((fun st : state => True /\ ~ bassn (BNot (BEq (AId X) (ANum 0))) st) 
-     <~~> (fun st : state => asnat (st X) = 0)) /\
-    (fun st : state => True /\ bassn (BNot (BEq (AId X) (ANum 0))) st) 
-     ~~> assn_sub X (AMinus (AId X) (ANum 1)) (fun _ : state => True) *)
+    (fun st : state => True /\ bassn (BNot (BEq (AId X) (ANum 0))) st) =
+    (fun st : state => True /\ bassn (BNot (BEq (AId X) (ANum 0))) st) /\
+    (fun st : state => True /\ ~ bassn (BNot (BEq (AId X) (ANum 0))) st) =
+    (fun st : state => True /\ ~ bassn (BNot (BEq (AId X) (ANum 0))) st) /\
+    (fun st : state => True /\ bassn (BNot (BEq (AId X) (ANum 0))) st) ~~>
+    assn_sub X (AMinus (AId X) (ANum 1)) (fun _ : state => True)) /\
+   (fun st : state => True /\ ~ bassn (BNot (BEq (AId X) (ANum 0))) st) ~~>
+   (fun st : state => asnat (st X) = 0) *)
 
 (** We can certainly work with them using just the tactics we have so
     far, but we can make things much smoother with a bit of
@@ -1193,27 +1342,27 @@ Tactic Notation "verify" :=
   repeat split;
   simpl; unfold assert_implies; 
   unfold bassn in *; unfold beval in *; unfold aeval in *;
-  unfold assn_sub; simpl in *;
-  intros; 
-  repeat match goal with [H : _ /\ _ |- _] => destruct H end; 
+  unfold assn_sub; intros;
+  repeat rewrite update_eq;
+  repeat (rewrite update_neq; [| reflexivity]);
+  simpl in *; 
+  repeat match goal with [H : _ /\ _ |- _] => destruct H end;
+  repeat rewrite not_true_iff_false in *;
+  repeat rewrite not_false_iff_true in *;
+  repeat rewrite negb_true_iff in *;
+  repeat rewrite negb_false_iff in *;
+  repeat rewrite beq_nat_true_iff in *;
+  repeat rewrite beq_nat_false_iff in *;
   try eauto; try omega.
 
 (** What's left after [verify] does its thing is "just the interesting
-    parts" of checking that the decorations are correct.  For example: *)
+    parts" of checking that the decorations are correct. For very
+    simple examples [verify] immediately solves the goal (provided
+    that the annotations are correct). *)
 
 Theorem dec_while_correct :
   dec_correct dec_while.
-Proof.
-  verify; destruct (asnat (st X)). 
-    inversion H0.
-    unfold not. intros. inversion H1.
-    apply ex_falso_quodlibet. apply H. reflexivity.
-    reflexivity.
-    reflexivity.
-    apply ex_falso_quodlibet. apply H0. reflexivity.
-    unfold not. intros. inversion H0.
-    inversion H.
-Qed.
+Proof. verify. Qed.
 
 (** Another example (formalizing a decorated program we've seen
     before): *)
@@ -1238,28 +1387,13 @@ Example subtract_slowly_dec (x:nat) (z:nat) : dcom := (
 
 Theorem subtract_slowly_dec_correct : forall x z, 
   dec_correct (subtract_slowly_dec x z).
-Proof.
-  intros. verify.
-    rewrite <- H. 
-    assert (H1: update st Z (VNat (asnat (st Z) - 1)) X = st X).
-      apply update_neq. reflexivity.
-    rewrite -> H1. destruct (asnat (st X)) as [| X']. 
-      inversion H0. simpl. rewrite <- minus_n_O. omega.
-    destruct (asnat (st X)).
-      omega.
-      apply ex_falso_quodlibet. apply H0. reflexivity.
-Qed.
+Proof. intros x z. verify. (* this grinds for a bit! *) Qed.
 
 (** **** Exercise: 3 stars (slow_assignment_dec) *)
-
 (** A roundabout way of assigning a number currently stored in [X] to
-   the variable [Y] is to start [Y] at [0], then decrement [X] until it
-   hits [0], incrementing [Y] at each step.
-
-   Here is an informal decorated program that implements this idea
-   given a parameter [x]: *)
-
-(**
+   the variable [Y] is to start [Y] at [0], then decrement [X] until
+   it hits [0], incrementing [Y] at each step.  Here is an informal
+   decorated program that implements this idea given a parameter [x]:
 [[
       {{ True }}
     X ::= x
@@ -1275,9 +1409,7 @@ Qed.
     END
       {{ Y = x /\ X = 0 }}
 ]]
-*)
-
-(** Write a corresponding function that returns a value of type [dcom]
+    Write a corresponding function that returns a value of type [dcom]
     and prove it correct. *)
 
 (* FILL IN HERE *)
@@ -1302,81 +1434,88 @@ Fixpoint real_fact (n:nat) : nat :=
 (** Finally, for a bigger example, let's redo the proof of
     [list_member_correct] from above using our new tools.
     
-    Notice that the [verify] tactic leaves subgoals for each use of
-    [hoare_consequence] -- that is, for each [=>] that occurs in the
-    decorated program. Each of these implications relies on a fact
-    about lists, for example that [l ++ [] = l]. In other words, the
-    Hoare logic infrastructure has taken care of the boilerplate
-    reasoning about the execution of imperative programs, while the
-    user has to prove lemmas that are specific to the problem
-    domain (e.g. lists or numbers). *)
+    Notice that the [verify] tactic leaves subgoals for each
+    "interesting" use of [hoare_consequence] -- that is, for each [=>]
+    that occurs in the decorated program, except for the ones that can
+    be eliminated by repeated application of a few simple automated
+    tactics. Each of these implications relies on a fact about lists,
+    for example that [l ++ [] = l]. In other words, the Hoare logic
+    infrastructure has taken care of the boilerplate reasoning about
+    the execution of imperative programs, while the user has to prove
+    lemmas that are specific to the problem domain (e.g. lists or
+    numbers). *)
 
 Definition list_member_dec (n : nat) (l : list nat) : dcom := (
-    {{ fun st => st X = VList l /\ st Y = VNat n /\ st Z = VNat 0 }}
+    {{ fun st => aslist (st X) = l 
+              /\ asnat (st Y) = n 
+              /\ asnat (st Z) = 0 }}
   WHILE BIsCons (AId X)
-  DO {{ fun st => st Y = VNat n 
+  DO {{ fun st => (asnat (st Y) = n 
                /\ (exists p, p ++ aslist (st X) = l 
-               /\ (st Z = VNat 1 <-> appears_in n p))
+               /\ (asnat (st Z) = 1 <-> appears_in n p)))
                /\ bassn (BIsCons (AId X)) st }}
     IFB (BEq (AId Y) (AHead (AId X))) THEN
         {{ fun st =>
-          ((st Y = VNat n 
+          ((asnat (st Y) = n 
             /\ (exists p, p ++ aslist (st X) = l 
-                /\ (st Z = VNat 1 <-> appears_in n p)))
+                /\ (asnat (st Z) = 1 <-> appears_in n p)))
           /\ bassn (BIsCons (AId X)) st)
           /\ bassn (BEq (AId Y) (AHead (AId X))) st }}
         =>
         {{ fun st => 
-            st Y = VNat n 
+            asnat (st Y) = n 
             /\ (exists p, p ++ tail (aslist (st X)) = l 
-                 /\ (VNat 1 = VNat 1 <-> appears_in n p)) }}
+                 /\ (1 = 1 <-> appears_in n p)) }}
       Z ::= ANum 1
-        {{ fun st => st Y = VNat n 
+        {{ fun st => asnat (st Y) = n 
              /\ (exists p, p ++ tail (aslist (st X)) = l 
-                  /\ (st Z = VNat 1 <-> appears_in n p)) }}
+                  /\ (asnat (st Z) = 1 <-> appears_in n p)) }}
    ELSE
         {{ fun st =>
-          ((st Y = VNat n 
+          ((asnat (st Y) = n 
             /\ (exists p, p ++ aslist (st X) = l 
-                  /\ (st Z = VNat 1 <-> appears_in n p)))
+                  /\ (asnat (st Z) = 1 <-> appears_in n p)))
           /\ bassn (BIsCons (AId X)) st)
           /\ ~bassn (BEq (AId Y) (AHead (AId X))) st }}
         =>
         {{ fun st => 
-          st Y = VNat n 
+          asnat (st Y) = n 
           /\ (exists p, p ++ tail (aslist (st X)) = l 
-               /\ (st Z = VNat 1 <-> appears_in n p)) }}
+               /\ (asnat (st Z) = 1 <-> appears_in n p)) }}
       SKIP
-        {{ fun st => st Y = VNat n 
+        {{ fun st => asnat (st Y) = n 
             /\ (exists p, p ++ tail (aslist (st X)) = l 
-                 /\ (st Z = VNat 1 <-> appears_in n p)) }}
-   FI ;
+                 /\ (asnat (st Z) = 1 <-> appears_in n p)) }}
+   FI
+     {{ fun st => asnat (st Y) = n 
+        /\ (exists p, p ++ tail (aslist (st X)) = l 
+          /\ (asnat (st Z) = 1 <-> appears_in n p)) }}
+   ;
    X ::= (ATail (AId X))
      {{ fun st  =>
-         st Y = VNat n /\
+         asnat (st Y) = n /\
          (exists p : list nat, p ++ aslist (st X) = l 
-           /\ (st Z = VNat 1 <-> appears_in n p)) }}
+           /\ (asnat (st Z) = 1 <-> appears_in n p)) }}
   END
    {{ fun st =>
-     (st Y = VNat n 
+     (asnat (st Y) = n 
        /\ (exists p, p ++ aslist (st X) = l 
-            /\ (st Z = VNat 1 <-> appears_in n p)))
+            /\ (asnat (st Z) = 1 <-> appears_in n p)))
      /\ ~bassn (BIsCons (AId X)) st }}
    =>
-   {{ fun st => st Z = VNat 1 <-> appears_in n l }}
+   {{ fun st => asnat (st Z) = 1 <-> appears_in n l }}
 ) %dcom.
 
 Theorem list_member_correct' : forall n l,
   dec_correct (list_member_dec n l).
 Proof.
-  intros n l.
-  verify.
+  intros n l. verify.
   Case "The loop precondition holds.".
     exists []. simpl. split.
       rewrite H. reflexivity.
-      rewrite H1. split; inversion 1.
+      rewrite H1. split; intro Hc; inversion Hc.
   Case "IF taken".
-    destruct H2 as  [p [H3 H4]].   
+    destruct H2 as [p [H3 H4]].
     (* We know X is non-nil. *)
     remember (aslist (st X)) as x.
     destruct x as [|h x'].
@@ -1386,10 +1525,9 @@ Proof.
          rewrite snoc_equation. assumption.
          split.
            rewrite H in H0.
-           simpl in H0.
-           rewrite (beq_true__eq _ _ H0).
-           intros. apply appears_in_snoc1.
-           intros. reflexivity.
+           simpl in H0. rewrite H0.
+           intros _. apply appears_in_snoc1.
+           intros _. reflexivity.
   Case "If not taken".
     destruct H2 as [p [H3 H4]].
     (* We know X is non-nil. *)
@@ -1397,28 +1535,24 @@ Proof.
     destruct x as [|h x'].
       inversion H1.
       exists (snoc p h).
-      split.
+      split. simpl.
         rewrite snoc_equation. assumption.
         split.
           intros. apply appears_in_snoc2. apply H4. assumption.
           intros Hai.  destruct (appears_in_snoc3 _ _ _ Hai).
           SCase "later". apply H4. assumption.
           SCase "here (absurd)".
-            subst.
-            simpl in H0. rewrite H in H0. rewrite beq_nat_refl in H0.
-            apply ex_falso_quodlibet. apply H0. reflexivity.
+            subst. simpl in H0. 
+            apply ex_falso_quodlibet. apply H0. assumption.
   Case "Loop postcondition implies desired conclusion (->)".
     destruct H2 as [p [H3 H4]].
-    unfold bassn in H1. simpl in H1.
     destruct (aslist (st X)) as [|h x'].
        rewrite append_nil in H3. subst. apply H4. assumption.
-       apply ex_falso_quodlibet. apply H1. reflexivity.
+       inversion H1.
   Case "loop postcondition implies desired conclusion (<-)".
-    destruct H2 as [p [H3 H4]]. 
-    unfold bassn in H1. simpl in H1.
+    destruct H2 as [p [H3 H4]].
     destruct (aslist (st X)) as [|h x'].
        rewrite append_nil in H3. subst. apply H4. assumption.
-       apply ex_falso_quodlibet. apply H1. reflexivity.
+       inversion H1.
 Qed.
-
 

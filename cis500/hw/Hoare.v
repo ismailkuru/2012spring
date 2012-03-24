@@ -94,21 +94,21 @@ Definition Assertion := state -> Prop.
 (** Paraphrase the following assertions in English.
 [[
       fun st =>  asnat (st X) = 3 
-      The states where [X] is equal to 3 hold.
+      The states satisfying [X] is equal to 3 hold.
 
       fun st =>  asnat (st X) = x
-      The states where [X] is equal to [x] hold.
+      The states satisfying [X] is equal to [x] hold.
 
       fun st =>  asnat (st X) <= asnat (st Y)
-      The states where [X] is less than or equal to [Y] hold.
+      The states satisfying [X] is less than or equal to [Y] hold.
 
       fun st =>  asnat (st X) = 3 \/ asnat (st X) <= asnat (st Y)
-      The states where [X] is equal to 3 or X is less than or equal to 
+      The states satisfying [X] is equal to 3 or X is less than or equal to 
       [Y] hold.
 
       fun st =>  (asnat (st Z)) * (asnat (st Z)) <= x 
                  /\ ~ (((S (asnat (st Z))) * (S (asnat (st Z)))) <= x)
-      The states where [Z] is equal to the squre root of [x] hold, and we
+      The states satisfying [Z] is equal to the squre root of [x] hold, and we
       assume x >= 0.
 
       fun st =>  True
@@ -350,21 +350,21 @@ Notation "P <~~> Q" := (P ~~> Q /\ Q ~~> P) (at level 80).
 (** What are the weakest preconditions of the following commands
    for the following postconditions?
 [[
-     {{ ? }}  SKIP  {{ X = 5 }}
+     {{ X = 5 }}  SKIP  {{ X = 5 }}
 
-     {{ ? }}  X ::= Y + Z {{ X = 5 }}
+     {{ Y + Z = 5 }}  X ::= Y + Z {{ X = 5 }}
 
-     {{ ? }}  X ::= Y  {{ X = Y }}
+     {{ Y = Y }}  X ::= Y  {{ X = Y }}
 
-     {{ ? }}  
+     {{ (X = 0 /\ Z = 4) \/ (X <> 0 /\ W = 3) }}  
      IFB X == 0 THEN Y ::= Z + 1 ELSE Y ::= W + 2 FI
      {{ Y = 5 }}
 
-     {{ ? }}  
+     {{ False }}  
      X ::= 5
      {{ X = 0 }}
 
-     {{ ? }}  
+     {{ True }}  
      WHILE True DO X ::= 0 END
      {{ X = 0 }}
 ]]
@@ -499,9 +499,6 @@ Example assn_sub_2:
   {{fun st => 0 <= asnat (st X) /\ asnat (st X) <= 5 }}.
 Proof.
   apply hoare_asgn.  Qed.
-(** If I directly apply [hoare_asgn], coq does not think
-   [fun st => 0<=3<=5] and [fun st => 0<=X<=5], so I have to
-   apply [hoare_asgn] in small steps.*)
 
 (** [] *)
 
@@ -1397,15 +1394,22 @@ Notation "{{ P }}  c  {{ Q }}" := (hoare_triple P c Q)
     in exercise [hoare_asgn_weakest], show that your precondition is
     the weakest precondition. *)
 
-Theorem hoare_havoc: forall P id v,
-  {{fun st=>P st}} 
-  (HAVOC id)
-  {{fun st=>P (update st id v)}}.
+Theorem hoare_havoc: forall (Q:Assertion) X,
+ {{fun st=>forall v:val, Q (update st X v) }} (HAVOC X) {{fun st=>Q st}}.
 Proof.
   unfold hoare_triple.
-  intros. 
+  intros.
   inversion H. subst.
-admit. Qed.
+  apply H0.
+Qed.
+(** Thanks for the help from Catalin*)
+
+(** Because of the non-determinism of [HAVOC X], [X] can be assigned any
+    value after executing [HAVOC X]. But [HAVOC X]'s behavior is still 
+    similar to an assignment, except that arbitrary value can be replaced
+    by [X] from pre-condition to post-condition. *)
+  
+       
 End Himp.
 (** [] *)
 
