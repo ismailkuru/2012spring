@@ -677,10 +677,20 @@ Proof.
     correctness proof. *)
 
 (* 
-   {{fun st => True}} 
+   {{True}} 
    X := x; 
-   sqrt_com 
-   {{sqrt_spec x}}.
+   {{X = x}}
+   Z := 0;
+   {{X = x /\ Z = 0}} =>
+   {{X = x /\ Z * Z <= x}}
+   WHILE ((Z + 1) * (Z + 1) <= X) DO
+       {{(X = x /\ Z * Z <= x) /\ (Z + 1) * (Z + 1) <= X}}=>
+       {{(X = x /\ Z * Z <= x) /\ (Z + 1) * (Z + 1) <= x}}
+       Z := Z + 1;
+       {{X = x /\ Z * Z <= x}}
+   END
+   {{(X = x /\ Z * Z <=x)/\ ~ ((Z + 1) * (Z + 1) <= X)}}=>
+   {{Z * Z <= x /\ ~ ((Z + 1) * (Z + 1) <= x)}}
 
 
  *)
@@ -1023,7 +1033,23 @@ Definition sum_program_spec := forall l,
   sum_program
   {{ fun st => asnat (st Y) = sum l }}.
 
-(* FILL IN HERE *)
+(* 
+   {{X = l}}
+   Y := 0;
+   {{X = l /\ Y = 0}}=>
+   {{(exist p, p ++ X = l /\ Y = sum p)}}
+   WHILE (BIsCons X) DO
+       {{(exist p, p ++ X = l /\ Y = sum p) /\ (BIsCons X)}}=>
+       {{(exist p, p ++ (tail X) = l /\ Y + (head X) = sum p)}}
+       Y := Y + head X;
+       {{(exist p, p ++ (tail X) = l /\ Y = sum p)}}
+       X := tail X;
+       {{(exist p, p ++ X = l /\ Y = sum p)}}
+   END
+   {{(exist p, p ++ X = l /\ Y = sum p) /\ ~(BIsCons X)}}=>
+   {{Y = sum l}}
+
+ *)
 (** [] **)
 
 (** **** Exercise: 4 stars (list_reverse) *)
@@ -1053,7 +1079,67 @@ Proof.
   intros. simpl. apply snoc_equation.
 Qed.
 
-(* FILL IN HERE *)
+Definition list_reverse_program:=
+  WHILE BIsCons (AId X) DO
+    Y ::= ACons (AHead (AId X)) (AId Y);
+    X ::= ATail (AId X)
+  END.
+
+(**
+    {{ X =  l /\ Y = nil }}=>
+    {{ rev X ++ Y = rev l}}
+    WHILE BIsCons X DO
+      {{rev X ++ Y = rev l /\ BIsCons X}}=>
+      {{rev (tail X) ++ cons (head X) Y = rev l}}
+      Y := cons (head X) Y;
+      {{rev (tail X) ++ Y = rev l}}
+      X := tail X
+      {{rev X ++ Y = rev l}}
+    END
+    {{rev X ++ Y = rev l /\ ~(BIsCons X)}}
+    {{ Y = rev l }}
+*)
+
+Theorem list_reverse_correct: forall l : list nat,
+      {{fun st=> aslist (st X) =  l /\ aslist (st Y) = nil }}
+      list_reverse_program
+      {{fun st=> aslist (st Y) = rev l }}.
+Proof.
+  intros l.
+  unfold list_reverse_program.
+  eapply hoare_consequence with (P':=(fun st=> rev (aslist (st X)) ++ aslist (st Y) = rev l)).
+  apply hoare_while.
+  eapply hoare_consequence_pre.
+  eapply hoare_seq.
+  apply hoare_asgn.
+  apply hoare_asgn.
+  Case "rev X ++ Y = rev l /\ BIsCons X => rev (tail X) ++ cons (head X) Y = rev l".
+  unfold assn_sub. simpl.
+  intros st [inv GuardTrue].
+  unfold bassn in GuardTrue. 
+  remember (aslist (st X)) as x.
+    destruct x as [|hd tl].
+    SCase "aslist (st X) = nil".
+     unfold bassn in GuardTrue. unfold beval in GuardTrue. 
+     unfold aeval in GuardTrue. 
+     rewrite <- Heqx in GuardTrue. inversion GuardTrue.
+    SCase "aslist (st X) = hd::tl".
+     simpl. rewrite <- rev_equation. 
+     unfold update. simpl. rewrite <- Heqx. simpl.
+     simpl in inv. assumption.
+  Case "X = l /\ Y = nil => rev X ++ Y = rev l".
+  unfold assert_implies.
+  intros st [HL HR]. rewrite HL, HR. apply append_nil.
+  Case "loop_invariant /\ guardfalse => Y = rev l".
+  unfold bassn, assert_implies. simpl.
+  intros st [inv GuardFalse].
+  destruct (aslist (st X)) as [|h x'].
+  SCase "X = nil".
+      simpl in inv. assumption.
+  SCase "X = hd::tl".
+      unfold not in GuardFalse. apply ex_falso_quodlibet.
+      apply GuardFalse. reflexivity.
+Qed.
 (** [] *)
 
 (* ####################################################### *)
@@ -1401,7 +1487,7 @@ Proof. intros x z. verify. (* this grinds for a bit! *) Qed.
     Y ::= 0
       {{ X = x /\ Y = 0 }} ;
     WHILE X <> 0 DO
-        {{ X + Y = x /\ X > 0 }}
+        {{ X + Y = x /\ X <> 0 }}
       X ::= X - 1
         {{ Y + X + 1 = x }} ;
       Y ::= Y + 1
@@ -1412,7 +1498,31 @@ Proof. intros x z. verify. (* this grinds for a bit! *) Qed.
     Write a corresponding function that returns a value of type [dcom]
     and prove it correct. *)
 
-(* FILL IN HERE *)
+Example slow_assignment_dec (x:nat): dcom := (
+      {{ fun st => True }}
+    X ::= (ANum x)
+      {{ fun st => asnat (st X) = x}};
+    Y ::= (ANum 0)
+      {{ fun st => asnat (st X) = x /\ asnat (st Y) = 0 }} 
+      =>
+      {{ fun st => asnat (st X) + asnat (st Y) = x }};
+    WHILE BNot (BEq (AId X) (ANum 0)) DO
+      {{ fun st => asnat (st X) + asnat (st Y) = x /\ negb (beq_nat (asnat (st X)) 0) = true}}
+    X ::= AMinus (AId X) (ANum 1)
+      {{ fun st => asnat (st X) + asnat (st Y) + 1 = x}};
+    Y ::= APlus (AId Y) (ANum 1)
+      {{ fun st => asnat (st X) + asnat (st Y) = x}}
+  END
+    {{ fun st =>  asnat (st X) + asnat (st Y) = x 
+              /\ ~ bassn (BNot (BEq (AId X) (ANum 0))) st }}
+    =>
+    {{ fun st => asnat (st Y) = x /\ asnat (st X) = 0}}
+) % dcom.
+
+Theorem slow_assignment_dec_correct : forall x, 
+  dec_correct (slow_assignment_dec x).
+Proof. intros x. verify. Qed.
+
 (** [] *)
 
 (** **** Exercise: 4 stars, optional (factorial_dec)  *)
