@@ -556,7 +556,8 @@ Definition find_parity_invariant' x :=
 
 (* Because if the state [st] makes [x < X], [x - asnat (st X ) = 0]
    for all the time, then ev (x - X) and ev (x - (X - 1)) both hold
-   at any point, we will have [Y = 0] and [1 - Y = 0]*)
+   at the beginning of the loop body, we will have [Y = 0] and [1 - Y = 0],
+   which is a contradiction. *)
 (** [] *)
 
 (* ####################################################### *) 
