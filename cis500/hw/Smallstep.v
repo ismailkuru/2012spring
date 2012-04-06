@@ -762,7 +762,10 @@ Qed.
 Theorem step_deterministic :
   deterministic step.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  unfold deterministic. intros x y1 y2 Hy1 Hy2.
+  generalize dependent y2.
+  induction x; intros y2 Hy2.
+  Admitted.
 (** [] *)
 
 Module Temp5. 
@@ -1195,13 +1198,63 @@ Theorem eval__multistep : forall t n,
     includes [==>]. *)
 
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros t n H.
+  induction H.
+  Case "multi_refl".
+      apply multi_refl.
+  Case "multi_step".
+      assert (P t1 t2 ==>* P (C n1) t2).      
+      SCase "Proof of assertion".
+          apply multistep_congr_1 with (t1':=(C n1)) (t1:=t1) (t2:=t2).
+          assumption.
+      assert (P (C n1) t2 ==>* P (C n1) (C n2)).
+      SCase "Proof of assertion".
+          apply multistep_congr_2.
+          constructor. assumption.
+      assert (P (C n1) (C n2) ==>* C (n1 + n2)).
+      SCase "Proof of assertion".
+          eapply multi_step.
+          apply ST_PlusConstConst.
+          apply multi_refl.
+      eapply multi_trans.
+      eapply multi_trans.
+      apply H1. apply H2. apply H3.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars (eval__multistep_inf) *)
 (** Write a detailed informal version of the proof of [eval__multistep].
 
-(* FILL IN HERE *)
+_Theorem_: if the term [t] evaluates to number [n], then by using
+multistep reduction, [t] will be reduced to [C n].
+
+_Proof_: By induction on [t || n], [t || n] either has the form of 
+         [C n || n], or [P t1 t2 || C (n1 + n2)].
+         - Suppose [t] has the form [C n]. We need to prove 
+           [C n ==>* C n], which is immediate from the definition of 
+           [multistep_refl].
+         - Suppose [t] has the form [P t1 t2 || C (n1 + n2)], where
+           [t1 || C n1], [t2 || C n2], and [t1 ==>* C n1], [t2 ==>* C n2],
+           we need to prove [P t1 t2 ==>* C (n1 + n2)].
+           
+           By using [multistep_congr_1], we can show that from 
+           [t1 ==>* C n1], [P t1 t2 ==>* P (C n1) t2] as [Assert1].
+
+           By using [multistep_congr_2], we can show that from
+           [t2 ==>* C n2], [P (C n1) t2 ==>* P (C n1) (C n2)] 
+           as [Assert2].
+           
+           In order to show [P (C n1) (C n2) ==>* C (n1 + n2)] as 
+           [Assert3],
+           we first show [P (C n1) (C n2) ==> C (n1 + n2)] by using
+           [ST_PlusConstConst], then with the help of [multi_refl],
+           [ C (n1 + n2) ==>* C (n1 + n2)] is immediate. With the
+           above two together and [multi_step], we can get
+           [P (C n1) (C n2) ==>* C (n1 + n2)].
+
+           By using [multi_trans] twice and together with [Assert1],
+           [Assert2], and [Assert3], we can show 
+           [ P t1 t2 ==>* C (n1 + n2)].
 []
 *)
 
@@ -1216,7 +1269,17 @@ Theorem step__eval : forall t t' n,
      t || n.
 Proof.
   intros t t' n Hs. generalize dependent n.
-  (* FILL IN HERE *) Admitted.
+  step_cases (induction Hs) Case.
+  Case "ST_PlusConstConst".
+      intros. inversion H.
+      constructor. constructor. apply E_Const.
+  Case "ST_Plus1".
+      intros. inversion H. apply E_Plus. 
+      apply IHHs. assumption. assumption.
+  Case "ST_Plus2".
+      intros. inversion H0. apply E_Plus.
+      assumption. apply IHHs. assumption.
+Qed.
 (** [] *)
 
 (** The main theorem is now straightforward to prove, once it is
@@ -1230,7 +1293,28 @@ Proof.
 Theorem multistep__eval : forall t v,
   normal_form_of t v -> exists n, v = C n /\ t || n.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros t v Hn.
+  inversion Hn as [HL HR].
+  multi_cases (induction HL) Case.
+  Case "multi_refl".
+      tm_cases (destruct x) SCase. 
+      SCase "C".
+          exists n. split. reflexivity. constructor.
+      SCase "P".
+          apply nf_is_value in HR. inversion HR.
+  Case "multi_step".
+      assert (normal_form_of y z).
+      SCase "Proof of Assertion".
+          unfold normal_form_of.
+          split. assumption. assumption.
+      apply IHHL in H0.
+      inversion H0. inversion H1.
+      exists x0.
+      split. 
+          assumption.
+          apply step__eval with y. assumption. assumption. 
+      assumption.
+Qed.
 (** [] *)
 
 (* ########################################################### *)
@@ -1296,7 +1380,49 @@ Tactic Notation "step_cases" tactic(first) ident(c) :=
 
     Prove or disprove these for the combined language. *)
 
-(* FILL IN HERE *)
+Definition deterministic {X: Type} (R: relation X) :=
+  forall x y1 y2 : X, R x y1 -> R x y2 -> y1 = y2. 
+
+Theorem step_deterministic :
+  deterministic step.
+Proof.
+  unfold deterministic. intros x y1 y2 Hy1 Hy2.
+  generalize dependent y2.
+  step_cases (induction Hy1) Case; intros y2 Hy2.
+  Case "ST_PlusConstConst".
+      inversion Hy2.
+      SCase "ST_PlusConstConst". reflexivity.
+      SCase "ST_Plus1". inversion H2.
+      SCase "ST_Plus2". inversion H3.
+  Case "ST_Plus1".
+      inversion Hy2.
+      SCase "ST_PlusConstConst". rewrite <- H0 in Hy1. inversion Hy1.
+      SCase "ST_Plus1". rewrite <- (IHHy1 t1'0). reflexivity. assumption.
+      SCase "ST_Plus2". inversion H1; rewrite <- H4 in Hy1; inversion Hy1.
+  Case "ST_Plus2".
+      inversion Hy2.
+      SCase "ST_PlusConstConst". rewrite <- H2 in Hy1. inversion Hy1.
+      SCase "ST_Plus1". inversion H; rewrite <- H4 in H3; inversion H3.
+      SCase "ST_Plus2". apply IHHy1 in H4. subst. reflexivity.
+  Case "ST_IfTrue".
+      inversion Hy2. reflexivity. inversion H3.
+  Case "ST_IfFalse". 
+      inversion Hy2. reflexivity. inversion H3.
+  Case "ST_If".
+      inversion Hy2.
+      SCase "ST_IfTrue". rewrite <- H0 in Hy1. inversion Hy1.
+      SCase "ST_IfFalse". rewrite <- H0 in Hy1. inversion Hy1.
+      SCase "ST_If". apply IHHy1 in H3. subst. reflexivity.
+Qed.
+
+Theorem strong_progress : exists t,
+  ~(value t \/ (exists t', t ==> t')).
+Proof.
+  exists (P (C 1) tm_true).
+  intros contra.
+  inversion contra. inversion H.
+  inversion H. inversion H0. inversion H4. inversion H5.
+Qed.
 (** [] *)
 
 End Combined.
