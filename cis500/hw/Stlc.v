@@ -460,7 +460,17 @@ Lemma step_example3 :
        (tapp (tapp idBBBB idBB) idB)
   ==>* idB.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  (*Use normalize. can finish all.*)
+  eapply multi_step.
+    apply ST_App1. auto.
+    simpl.
+    (* Or use apply step_example1. to end *)
+  eapply multi_step.
+    apply ST_AppAbs.
+    apply v_abs.
+  simpl.
+  apply multi_refl.
+Qed.
 (** [] *)
 
 (* ###################################################################### *)
@@ -618,13 +628,20 @@ Example typing_example_2_full :
           (tapp (tvar y) (tapp (tvar y) (tvar x)))))
     (TArrow TBool (TArrow (TArrow TBool TBool) TBool)).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  apply T_Abs.
+  apply T_Abs.
+  apply T_App with (T11:=TBool).
+    apply T_Var. reflexivity.
+  apply T_App with (T11:=TBool).
+    apply T_Var. reflexivity.
+  apply T_Var. reflexivity.
+Qed.
 (** [] *)
 
 (** **** Exercise: 2 stars (typing_example_3) *)
 (** Formally prove the following typing derivation holds: *)
 (** 
-   empty |- (\x:Bool->B. \y:Bool->Bool. \z:Bool.
+   empty |- (\x:Bool->Bool. \y:Bool->Bool. \z:Bool.
                y (x z)) 
          : T.
 *)
@@ -639,7 +656,14 @@ Example typing_example_3 :
       T.
 
 Proof with auto.
-  (* FILL IN HERE *) Admitted.
+  exists (TArrow (TArrow TBool TBool) (TArrow (TArrow TBool TBool) (TArrow TBool TBool))).
+  apply T_Abs.
+  apply T_Abs.
+  apply T_Abs.
+  apply T_App with (TBool). apply T_Var...
+  apply T_App with (TBool). apply T_Var...
+  apply T_Var...  
+Qed.
 (** [] *)
 
 (** We can also show that terms are _not_ typable.  For example, let's
@@ -681,7 +705,19 @@ Example typing_nonexample_3 :
              (tapp (tvar x) (tvar x)))
           T).
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros Hc. inversion Hc.
+  inversion H. subst. clear H.
+  inversion H0. subst. clear H0.
+  inversion H5. subst. clear H5.
+  inversion H4. subst. clear H4.
+  inversion H2. subst. clear H2.
+  Case "Proof X != X -> Y".
+  rewrite H1 in H3. inversion H3.
+  induction T11. inversion H0.
+  inversion H0. apply IHT11_1. rewrite H2. assumption.
+  rewrite <- H4. rewrite H2 at 1. reflexivity.
+  rewrite <- H4. assumption.
+Qed.
 (** [] *)
 
 (** **** Exercise: 1 star, optional (typing_statements) *)
@@ -706,18 +742,40 @@ Proof.
     ones that are, give witnesses for the existentially bound
     variables.
        - [exists T,  empty |- (\y:B->B->B. \x:B, y x) : T]
+         T = (B->B->B)->(B->(B->B))
 
        - [exists T,  empty |- (\x:A->B, \y:B-->C, \z:A, y (x z)):T]
+         T = (A->B)->((B->C)->(A->C))
 
        - [exists S, exists U, exists T,  x:S, y:U |- \z:A. x (y z) : T]
+         S = B->C
+         U = A->B
+         T = A->C
 
        - [exists S, exists T,  x:S |- \y:A. x (x y) : T]
+         S = A->A
+         T = A->A
 
        - [exists S, exists U, exists T,  x:S |- x (\z:U. z x) : T]
-
+         S = A 
+         U = A->B
+         T = B
+ 
 []
 *)
 
+Theorem mts1: exists T,  
+  has_type empty 
+     (tabs y (TArrow TBool (TArrow TBool TBool)) 
+       (tabs x TBool 
+         (tapp (tvar y) (tvar x)))) T.
+Proof.
+  exists (TArrow (TArrow TBool (TArrow TBool TBool)) ((TArrow TBool (TArrow TBool TBool)))).
+  apply T_Abs.
+  apply T_Abs.
+  apply T_App with (TBool). apply T_Var. reflexivity.
+  apply T_Var. reflexivity.
+Qed.
 (* ###################################################################### *)
 (** ** Properties *)
 

@@ -792,7 +792,57 @@ Qed.
              by the IH, [|- t1' : Bool].  The [T_If] rule then gives us
              [|- if t1' then t2 else t3 : T], as required.
 
-    (* FILL IN HERE *)
+    - If the last rule in the derivation is [T_Succ], then [t = tsucc t1],
+      with [|- t1: Nat], [|- t: Nat]. 
+
+      Inspecting the rules for the small-step reduction relation and
+      remembering that [t] has the form [tsucc t1], we see that only one
+      that could have been used to prove [t ==> t'] is [ST_Succ].
+          
+          - If the last rule was [ST_Succ], then [tsucc t1 ==> tsucc t1']
+            where [t1 ==> t1']. Combined with the IH [forall t':tm, 
+            t1 ==> t' -> |- t': Nat], we know [|- t1': Nat].
+            Then, with the help of [T_Succ], we know 
+            [|- (tsucc t1') Nat], namely [|- t': Nat].
+
+    - If the last rule in the derivation is [T_Pred], then [t = tpred t1],
+      with [|- t1: Nat], [|- t: Nat]. 
+
+      Inspecting the rules for the small-step reduction relation and
+      remembering that [t] has the form [tpred t1], we see that only ones
+      that could have been used to prove [t ==> t'] are [ST_PredZero],
+      [ST_PredSucc], and [ST_Pred].
+          
+          - If the last rule was [ST_PredZero], then we know [t1 = tzero],
+            so is [t']. Then [|- t': Nat] is immediate.
+          - If the last rule was [ST_PredSucc], then we know 
+            [t1 = tsucc t'], and [|- tsucc t': Nat]. We also know 
+            [|- t': Nat].
+          - If the last rule was [ST_Pred], then [tpred t1 ==> tpred t1']
+            where [t1 ==> t1']. Combined with the IH [forall t' : tm, 
+            t1 ==> t' -> |- t': Nat], we know [|- t1': Nat]. Then, 
+            with the help of [T_Pred], we know [|- tpred t1': Nat], 
+            which is [|- t': Nat].
+
+    - If the last rule in the derivation is [T_Iszero], then 
+      [t = tiszero t1], with [|- t1: Nat], [|- t: Bool]. 
+
+      Inspecting the rules for the small-step reduction relation and
+      remembering that [t] has the form [tpred t1], we see that only ones
+      that could have been used to prove [t ==> t'] are [ST_IszeroZero],
+      [ST_IszeroSucc], and [ST_Iszero].
+
+          - If the last rule was [ST_IszeroZero], then we know 
+            [t1 = tzero], and [t' = ttrue]. Then [|- t': Bool] is 
+            immediate.
+          - If the last rule was [ST_IszeroSucc], then we know
+            [t1 = tsucc t0], and [t' = ttrue]. Then [|- t': Bool] is
+            immediate.
+          - If the last rule was [ST_Iszero], then [tiszero t1 ==> 
+            tiszero t1'], where [t1 ==> t1']. Combined with the IH
+            [forall t' : tm, t1 ==> t' -> |- t': Nat], we know
+            [|- t1': Nat]. With the help of [T_Iszero], we know
+            [|- tiszero t1': Bool], namely [|- t': Bool].
 []
 *)
 
@@ -809,13 +859,23 @@ Proof with auto.
          intros t' HE; 
          (* and we can deal with several impossible
             cases all at once *)
-         try (solve by inversion).
+         try (solve by inversion). 
     Case "T_If". inversion HE; subst.
       SCase "ST_IFTrue". assumption.
       SCase "ST_IfFalse". assumption.
       SCase "ST_If". apply T_If; try assumption.
         apply IHHT1; assumption.
-    (* FILL IN HERE *) Admitted.
+    Case "T_Succ". inversion HE; subst.
+      apply IHHT in H0. apply T_Succ. assumption.
+    Case "T_Pred". inversion HE; subst.
+      SCase "ST_PredZero". apply T_Zero.
+      SCase "ST_PredSucc". inversion HT. assumption.
+      SCase "ST_Pred". apply IHHT in H0. apply T_Pred. assumption.
+    Case "T_Iszero". inversion HE; subst.
+      SCase "ST_IszeroZero". apply T_True.
+      SCase "ST_IszeroSucc". apply T_False.
+      SCase "ST_Iszero". apply IHHT in H0. apply T_Iszero. assumption.
+Qed.
 (** [] *)
 
 (** **** Exercise: 3 stars (preservation_alternate_proof) *)
@@ -831,7 +891,28 @@ Theorem preservation' : forall t t' T,
   t ==> t' ->
   has_type t' T.
 Proof with eauto.
-  (* FILL IN HERE *) Admitted.
+  intros t t' T HT HE.
+  generalize dependent T.
+  step_cases (induction HE) Case; 
+             intros T HT; 
+             try (inversion HT; assumption).
+  Case "ST_If".
+      inversion HT. apply T_If. 
+      apply IHHE. assumption. assumption. assumption.
+  Case "ST_Succ".
+      inversion HT. apply T_Succ.
+      apply IHHE. assumption.
+  Case "ST_PredSucc".
+      inversion HT. inversion H1. assumption.
+  Case "ST_Pred".
+      inversion HT. apply T_Pred. apply IHHE. assumption.
+  Case "ST_IszeroZero".
+      inversion HT. apply T_True. 
+  Case "ST_IszeroSucc".
+      inversion HT. apply T_False.
+  Case "ST_Iszero".
+      inversion HT. apply T_Iszero. apply IHHE. assumption.
+Qed.
 (** [] *)
 
 (* ###################################################################### *)
@@ -864,9 +945,19 @@ Proof.
     not, give a counter-example.  (You do not need to prove your
     counter-example in Coq, but feel free to do so if you like.)
 
-    (* FILL IN HERE *)
+   
 []
 *)
+
+Theorem subject_expansion_counter:
+  tif ttrue ttrue tzero ==> ttrue ->
+  has_type ttrue TBool ->
+  ~(exists T, has_type (tif ttrue ttrue tzero) T).
+Proof.
+  intros HE HT contra.
+  inversion contra. inversion H. inversion H5. subst.
+  inversion H6.
+Qed.
 
 (** **** Exercise: 2 stars (variation1) *)
 (** Suppose we add the following two new rules to the evaluation
@@ -880,11 +971,13 @@ Proof.
    else "becomes false." If a property becomes false, give a
    counterexample.
       - Determinism of [step]
+        becomes false. [tpred ttrue] will keep stepping.
 
       - Progress
+        remains true
 
       - Preservation
-
+        remains true
 []
 *)
 
@@ -896,10 +989,13 @@ Proof.
    Which of the following properties remain true in the presence of
    this rule?  (Answer in the same style as above.)
       - Determinism of [step]
+        remains true
 
       - Progress
+        remains true
 
       - Preservation
+        remains true 
 
 []
 *)
@@ -912,10 +1008,14 @@ Proof.
    Which of the following properties remain true in the presence of
    this rule?  (Answer in the same style as above.)
       - Determinism of [step]
+        remains true
 
       - Progress
+        becomes false. For [tsucc t], it has type [TBool], but it is
+        not a value, and it cannot step further.
 
       - Preservation
+        remains true
 
 []
 *)
@@ -926,7 +1026,12 @@ Proof.
            (tif ttrue t2 t3) ==> t3
    Which of the above properties become false in the presence of
    this rule?  For each one that does, give a counter-example.
-
+   
+      Determinism of [step] is lost.
+      
+      Because for [tif ttrue t2 t3] where [t2] [t3] are terms,
+      it can step either to [t2] by rule [ST_IfTrue], or to
+      [t3] by rule [ST_Funny1].
 []
 *)
 
@@ -938,6 +1043,12 @@ Proof.
    Which of the above properties become false in the presence of
    this rule?  For each one that does, give a counter-example.
 
+      Determinism of [step] is lost.
+      
+      Because for [tif t1 t2 t3], where [t1], [t2], [t3] are terms,
+      if [t1==>t1'], and [t2==>t2'], it can step to either
+      [tif t1' t2 t3] by rule [ST_If], or to [tif t1 t2' t3] by
+      rule [ST_Funny2].
 []
 *)
 
@@ -948,6 +1059,11 @@ Proof.
    Which of the above properties become false in the presence of
    this rule?  For each one that does, give a counter-example.
 
+      Determinism of [step] is lost.
+
+      Because for [tpred tfalse], it can step to
+      [tpred (tpred tfalse)], [tpred (tpred (tpred tfalse))],
+      and so on, forever.
 []
 *)
 
@@ -960,6 +1076,12 @@ Proof.
    Which of the above properties become false in the presence of
    this rule?  For each one that does, give a counter-example.
 
+     Preservation is lost.
+
+     Because for [tif ttrue tzero (tsucc tzero)] which has type [TNat], 
+     it will step to [tzero] which does not need to be [TNat], 
+     but possibly [TBool].
+   
 []
 *)
 
@@ -972,6 +1094,11 @@ Proof.
    Which of the above properties become false in the presence of
    this rule?  For each one that does, give a counter-example.
 
+     Preservation is lost.
+
+     Because for [tpred tzero] which has type [TBool], 
+     it will step to [tzero] which has type [TNat].
+     This contradicts the [Presercation] rule.
 []
 *)
 
@@ -981,6 +1108,7 @@ Proof.
     properties -- i.e., ways of changing the definitions that
     break just one of the properties and leave the others alone.
     [] 
+
 *)
 
 (** **** Exercise: 1 star (remove_predzero) *)
@@ -990,7 +1118,9 @@ Proof.
     achieve this simply by removing the rule from the definition of
     [step]?  Would doing so create any problems elsewhere? 
 
-(* FILL IN HERE *)
+    No. Because if so, it will break the [T_Pred] rule. Since 
+    [|- tzero: Nat] cannot imply that [|- tpred tzero: Nat], 
+    in which [tpred tzero] is not a term.
 [] *)
 
 (** **** Exercise: 4 stars, optional (prog_pres_bigstep) *)
