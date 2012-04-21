@@ -843,6 +843,10 @@ Qed.
             [forall t' : tm, t1 ==> t' -> |- t': Nat], we know
             [|- t1': Nat]. With the help of [T_Iszero], we know
             [|- tiszero t1': Bool], namely [|- t': Bool].
+
+    - If the last rule in the derivation is one of [T_True], [T_False],
+      and [T_Zero], any of them never steps, so we do not have [t'], no
+      need to prove anything.
 []
 *)
 
@@ -945,16 +949,22 @@ Proof.
     not, give a counter-example.  (You do not need to prove your
     counter-example in Coq, but feel free to do so if you like.)
 
+    [tif ttrue ttrue tzero] is a counter-example, because it steps
+    to [ttrue] which has type [Bool], but itself is not well-typed.
    
 []
 *)
 
 Theorem subject_expansion_counter:
-  tif ttrue ttrue tzero ==> ttrue ->
-  has_type ttrue TBool ->
+  tif ttrue ttrue tzero ==> ttrue /\
+  has_type ttrue TBool /\
   ~(exists T, has_type (tif ttrue ttrue tzero) T).
 Proof.
-  intros HE HT contra.
+  split.
+  auto.
+  split.
+  auto.
+  intros contra.
   inversion contra. inversion H. inversion H5. subst.
   inversion H6.
 Qed.
