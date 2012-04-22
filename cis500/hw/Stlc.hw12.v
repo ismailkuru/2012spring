@@ -944,7 +944,20 @@ Corollary typable_empty__closed : forall t T,
     has_type empty t T  ->
     closed t.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros t T H x contra. generalize dependent T.
+  afi_cases (induction contra) Case; 
+      intros; try solve [inversion H; eauto].
+  Case "afi_var".
+      inversion H. inversion H2.
+  Case "afi_abs".
+      clear IHcontra.
+      inversion H0. subst.
+      apply free_in_context with (T:=T12) (Gamma:=extend empty y0 T11) 
+                            in contra.
+      inversion contra. apply not_eq_beq_id_false in H. 
+      apply extend_neq with (ctxt:=empty) (x2:=y0) (T:=T11) in H.
+      rewrite H in H1. inversion H1. assumption.
+Qed.
 (** [] *)
 
 (** Sometimes, when we have a proof [Gamma |- t : T], we will need to
@@ -1215,7 +1228,8 @@ Qed.
     t' T], then [has_type t T]?  If so, prove it.  If not, give a
     counter-example.
 
-(* FILL IN HERE *)
+    [tif ttrue ttrue tzero] is a counter-example, because it steps
+    to [ttrue] which has type [Bool], but itself is not well-typed.
 []
 *)
 
@@ -1250,7 +1264,24 @@ Proof.
     type. *)
 (** Formalize this statement and prove it. *)
 
-(* FILL IN HERE *)
+Theorem types_unique: forall (t:tm) (Gamma:context) (T1 T2:ty),
+    has_type Gamma t T1 -> 
+    has_type Gamma t T2 ->
+    T1 = T2.
+Proof.
+  intros t Gamma T1 T2 H1. generalize dependent T2.
+  has_type_cases (induction H1) Case; 
+         intros; try (inversion H; reflexivity).
+  Case "T_Var".
+      inversion H0. rewrite H in H3. inversion H3. reflexivity.
+  Case "T_Abs".
+      inversion H. subst. apply IHhas_type in H6. subst. reflexivity.
+  Case "T_App".
+      inversion H. subst. apply IHhas_type1 in H3. inversion H3. 
+      reflexivity.
+  Case "T_If".
+      inversion H. apply IHhas_type2 in H6. assumption.
+Qed.
 (** [] *)
 
 (* ###################################################################### *)
@@ -1259,7 +1290,14 @@ Proof.
 (** **** Exercise: 1 star (progress_preservation_statement) *)
 (** Without peeking, write down the progress and preservation
     theorems for the simply typed lambda-calculus. *)
-(** [] *)
+(** 
+   Progress: if a closed term [t] has type [T], it either is a value,
+             or it can step to another closed term [t'].
+
+   Perservation: if a closed term [t] has type [T], and it can step to
+                 another closed term [t'], then [t'] also has type [T].
+
+ *)
 
 (** **** Exercise: 2 stars, optional (stlc_variation1) *)
 (** Suppose we add the following new rule to the evaluation
@@ -1286,6 +1324,11 @@ Proof.
     exercise become false in the absence of this rule? For each
     that becomes false, give a counterexample.
 
+    Progress is false. 
+
+    Counter-example: [(tif ttrue \y:Nat.y \y:Nat.y+1) 5] has type
+    [Nat], but it cannot step, and it is not a value.
+    
 []
 *)
 
