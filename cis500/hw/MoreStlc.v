@@ -601,7 +601,14 @@ if 3=0 then 1 else 3 * (fix F (pred 3))
         else if (pred x)=0 then 0
         else 1 + (halve (pred (pred x))))
 >>
-(* FILL IN HERE *)
+
+  halve = 
+    fix
+       \f:Nat->Nat.
+         \x:Nat.
+            if x = 0 then 0
+            else if (pred x) = 0 then 0
+            else 1 + f (pred (pred x))
 []
 *)
 
@@ -610,7 +617,36 @@ if 3=0 then 1 else 3 * (fix F (pred 3))
     through to reduce to a normal form (assuming the usual reduction
     rules for arithmetic operations).
 
-    (* FILL IN HERE *)
+(fix F 1)
+>>
+[==>] [ST_FixAbs]
+<<
+((\x. if x=0 then 1 else x * (fix F (pred x))) 1)
+>>
+[==>] [ST_AppAbs]
+<<
+(if 1=0 then 1 else 1 * (fix F (pred 1)))
+>>
+[==>] [ST_If0_Nonzero]
+<<
+(1 * (fix F (pred 1)))
+>>
+[==>] [ST_FixAbs + ST_Mult2]
+<<
+(1 * ((\x. if x=0 then 1 else x * (fix F (pred x))) (pred 1)))
+>>
+[==>] [ST_PredNat + ST_Mult2]
+<<
+(1 * ((\x. if x=0 then 1 else x * (fix F (pred x))) 0))
+>>
+[==>] [ST_AppAbs + ST_Mult2  + ST_App2]
+<<
+(1 * (if 0=0 then 1 else 0 * (fix F (pred 0))))
+>>
+[==>] [ST_If0Zero + ST_Mult2]
+<<
+(1 * 1) = 1
+>>
 []
 *)
 
@@ -960,8 +996,28 @@ Fixpoint subst (x:id) (s:tm) (t:tm) : tm :=
       tabs y T (if beq_id x y then t1 else (subst x s t1))
   | tapp t1 t2 => 
       tapp (subst x s t1) (subst x s t2)
-  (* FILL IN HERE *)
-  | _ => t  (* ... and delete this line *) 
+  | tnat n => tnat n
+  | tsucc y => tsucc (subst x s y) 
+  | tpred y => tpred (subst x s y)
+  | tmult y1 y2 => tmult (subst x s y1) (subst x s y2)
+  | tif0 cond tthen telse =>
+      tif0 (subst x s cond) (subst x s tthen) (subst x s telse)
+  | tpair l r => tpair (subst x s l) (subst x s r)
+  | tfst tp => tfst (subst x s tp)
+  | tsnd tp => tsnd (subst x s tp)
+  | tunit => tunit
+  | tlet x' t1 t2 =>
+    if beq_id x x' then tlet x' t1 t2 
+                   else (tlet x' (subst x s t1) (subst x s t2))
+  | tinl Tl t1 => tinl Tl (subst x s t1)
+  | tinr Tr t1 => tinr Tr (subst x s t1)
+  | tcase t0 x1 t1 x2 t2 =>
+     tcase (subst x s t0) x1 (subst x s t1) x2 (subst x s t2)
+  | tnil T => tnil T
+  | tcons t1 t2 => tcons (subst x s t1) (subst x s t2)
+  | tlcase t1 t2 y z t3 =>
+     tlcase (subst x s t1) (subst x s t2) y z (subst x s t3)
+  | tfix t => tfix (subst x s t)
   end.
 
 Notation "'[' x ':=' s ']' t" := (subst x s t) (at level 20).
@@ -975,8 +1031,32 @@ Notation "'[' x ':=' s ']' t" := (subst x s t) (at level 20).
 Inductive value : tm -> Prop :=
   | v_abs : forall x T11 t12,
       value (tabs x T11 t12)
-  (* FILL IN HERE *)
-  .
+  | v_var : forall n:id,
+      value (tvar n)
+  | v_nat : forall n:nat,
+      value (tnat n)
+  | v_pair : forall t1 t2:tm,
+      value t1 ->
+      value t2 ->
+      value (tpair t1 t2)
+  | v_unit :
+      value tunit
+  | v_inl : forall (t1:tm) (T:ty),
+      value t1 ->
+      value (tinl T t1)
+  | v_inr : forall (t1:tm) (T:ty),
+      value t1 ->
+      value (tinr T t1)
+  | v_nil : forall T:ty,
+      value (tnil T)
+  | v_cons : forall t1 t2:tm,
+      value t1 ->
+      value t2 ->
+      value (tcons t1 t2)
+  | v_fix : forall t:tm,
+      value t ->
+      value (tfix t)
+.
 
 Hint Constructors value.
 
@@ -993,14 +1073,115 @@ Inductive step : tm -> tm -> Prop :=
          value v1 ->
          t2 ==> t2' ->
          (tapp v1 t2) ==> (tapp v1 t2')
-  (* FILL IN HERE *)
-
+  | ST_Succ : forall t1 t1':tm,
+         t1 ==> t1' ->
+         tsucc t1 ==> tsucc t1'
+  | ST_SuccNat : forall n:nat,
+         tsucc (tnat n) ==> tnat (S n)
+  | ST_Pred : forall t1 t1':tm,
+         t1 ==> t1' ->
+         tpred t1 ==> tpred t1'
+  | ST_PredNat : forall n:nat,
+         tpred (tnat n) ==>
+          match n with
+            |0 =>  tnat n
+            |S n' => tnat n'
+          end
+  | ST_Mult1: forall t1 t1' t2:tm,
+         t1 ==> t1' ->
+         (tmult t1 t2) ==> (tmult t1' t2)
+  | ST_Mult2: forall (v1 t2 t2':tm),
+         value v1 ->
+         t2 ==> t2' ->
+         (tmult v1 t2) ==> (tmult v1 t2')
+  | ST_MultNat : forall n1 n2:nat,
+         tmult (tnat n1) (tnat n2) ==> tnat (n1 * n2)
+  | ST_If0Cond : forall t1 t1' tthen telse:tm,
+         t1 ==> t1' ->
+         (tif0 t1 tthen telse) ==> (tif0 t1' tthen telse)
+  | ST_IF0Then : forall tthen telse:tm,
+         (tif0 (tnat 0) tthen telse) ==> tthen
+  | ST_IF0Else : forall (n:nat) (tthen telse:tm),
+         n <> 0 ->
+         (tif0 (tnat n) tthen telse) ==> telse
+  | ST_Pair1: forall t1 t1' t2:tm,
+         t1 ==> t1' ->
+         (tpair t1 t2) ==> (tpair t1' t2)
+  | ST_Pair2: forall v1 t2 t2':tm,
+         value v1 ->
+         t2 ==> t2' ->
+         (tpair v1 t2) ==> (tpair v1 t2')
+  | ST_Fst1: forall t1 t1':tm,
+         t1 ==> t1' ->
+         (tfst t1) ==> (tfst t1')
+  | ST_FstPair: forall v1 v2:tm,
+         value v1 -> value v2 ->
+         (tfst (tpair v1 v2)) ==> v1
+  | ST_Snd1: forall t1 t1':tm,
+         t1 ==> t1' ->
+         (tsnd t1) ==> (tsnd t1')
+  | ST_SndPair: forall v1 v2:tm,
+         value v1 -> value v2 ->
+         (tsnd (tpair v1 v2)) ==> v2
+  | ST_Let1: forall (x:id) (t1 t1' t2:tm),
+         t1 ==> t1' ->
+         (tlet x t1 t2) ==> (tlet x t1' t2)
+  (*| ST_Let2: forall (x:id) (v1 t2 t2':tm),
+         value v1 ->
+         t2 ==> t2' ->
+         (tlet x v1 t2) ==> (tlet x v1 t2')*)
+  | ST_LetValue: forall (x:id) (v1 t2:tm),
+         value v1 -> 
+         (tlet x v1 t2) ==> [x:=v1]t2
+  | ST_Inl: forall (t1 t1':tm) (T:ty),
+         t1 ==> t1' ->
+         (tinl T t1) ==> (tinl T t1')
+  | ST_Inr: forall (t1 t1':tm) (T:ty),
+         t1 ==> t1' ->
+         (tinr T t1) ==> (tinr T t1')
+  | ST_Case: forall (t0 t0' t1 t2:tm) (x1 x2:id),
+         t0 ==> t0' ->
+         (tcase t0 x1 t1 x2 t2) ==> (tcase t0' x1 t1 x2 t2)
+  | ST_CaseInl: forall (T:ty) (v0 t1 t2:tm) (x1 x2:id),
+         value v0 ->
+         (tcase (tinl T v0) x1 t1 x2 t2) ==> [x1:=v0]t1
+  | ST_CaseInr: forall (T:ty) (v0 t1 t2:tm) (x1 x2:id),
+         value v0 ->
+         (tcase (tinr T v0) x1 t1 x2 t2) ==> [x2:=v0]t2
+  | ST_Cons1: forall t1 t1' t2:tm,
+         t1 ==> t1' ->
+         (tcons t1 t2) ==> (tcons t1' t2)
+  | ST_Cons2: forall v1 t2 t2':tm,
+         value v1 ->
+         t2 ==> t2' ->
+         (tcons v1 t2) ==> (tcons v1 t2')
+  | ST_Lcase1: forall (xh xt:id) (t1 t1' t2 t3:tm),
+         t1 ==> t1' ->
+         (tlcase t1 t2 xh xt t3) ==> (tlcase t1' t2 xh xt t3)
+  | ST_LcaseNil: forall (T:ty) (t2 t3:tm) (xh xt:id),
+         (tlcase (tnil T) t2 xh xt t3) ==> t2
+  | ST_LcaseCons: forall (vh vt t2 t3:tm) (xh xt:id),
+         (tlcase (tcons vh vt) t2 xh xt t3) ==> [xh:=vh]([xt:=vt]t3)
+  | ST_Fix1: forall t1 t1':tm,
+         (tfix t1) ==> (tfix t1')
+  | ST_FixAbs: forall (xf:id) (T1:ty) (f t2:tm),
+         f = tabs xf T1 t2 ->
+         (tfix f) ==> [xf:=tfix f]t2
 where "t1 '==>' t2" := (step t1 t2).
 
 Tactic Notation "step_cases" tactic(first) ident(c) :=
   first;
-  [ Case_aux c "ST_AppAbs" | Case_aux c "ST_App1" | Case_aux c "ST_App2"
-    (* FILL IN HERE *)
+  [ Case_aux c "ST_AppAbs" | Case_aux c "ST_App1" | Case_aux c "ST_App2"|
+    Case_aux c "ST_Succ" | Case_aux c "ST_SuccNat" | Case_aux c "ST_Pred"|
+    Case_aux c "ST_PredNat" | Case_aux c "ST_Mult1" | Case_aux c "ST_Mult2"|
+    Case_aux c "ST_MultNat" | Case_aux c "ST_If0Cond" | Case_aux c "ST_If0Then"|
+    Case_aux c "ST_If0Else" | Case_aux c "ST_Pair1" | Case_aux c "ST_Pair2"|
+    Case_aux c "ST_Fst1" | Case_aux c "ST_FstPair" | Case_aux c "ST_Snd1"|
+    Case_aux c "ST_SndPair" | Case_aux c "ST_Let1" | Case_aux c "ST_LetValue"|
+    Case_aux c "ST_Inl" | Case_aux c "ST_Inr" | Case_aux c "ST_Case"|
+    Case_aux c "ST_CaseInl" | Case_aux c "ST_CaseInr" | Case_aux c "ST_Cons1"|
+    Case_aux c "ST_Cons2" | Case_aux c "ST_Lcase1" | Case_aux c "ST_LcaseNil"|
+    Case_aux c "ST_LcaseCons" | Case_aux c "ST_Fix1" | Case_aux c "ST_FixAbs"
   ].
 
 Notation multistep := (multi step).
@@ -1028,15 +1209,75 @@ Inductive has_type : context -> tm -> ty -> Prop :=
       has_type Gamma t1 (TArrow T1 T2) -> 
       has_type Gamma t2 T1 -> 
       has_type Gamma (tapp t1 t2) T2
-  (* FILL IN HERE *)
+  | T_Nat : forall (Gamma:context) (n:nat),
+      has_type Gamma (tnat n) TNat
+  | T_Succ : forall (Gamma:context) (t:tm),
+      has_type Gamma t TNat ->
+      has_type Gamma (tsucc t) TNat
+  | T_Pred : forall (Gamma:context) (t:tm),
+      has_type Gamma t TNat ->
+      has_type Gamma (tpred t) TNat
+  | T_Mult : forall (Gamma:context) (t1 t2:tm),
+      has_type Gamma t1 TNat ->
+      has_type Gamma t2 TNat ->
+      has_type Gamma (tmult t1 t2) TNat
+  | T_If0 : forall (Gamma:context) (t1 t2 t3:tm) (T:ty),
+      has_type Gamma t1 TNat ->
+      has_type Gamma t2 T ->
+      has_type Gamma t3 T ->
+      has_type Gamma (tif0 t1 t2 t3) T
+  | T_Pair : forall (Gamma:context) (t1 t2:tm) (T1 T2:ty),
+      has_type Gamma t1 T1 ->
+      has_type Gamma t2 T2 ->
+      has_type Gamma (tpair t1 t2) (TProd T1 T2)
+  | T_Fst : forall (Gamma:context) (t1:tm) (T11 T12:ty),
+      has_type Gamma t1 (TProd T11 T12) ->
+      has_type Gamma (tfst t1) T11
+  | T_Snd : forall (Gamma:context) (t2:tm) (T11 T12:ty),
+      has_type Gamma t2 (TProd T11 T12) ->
+      has_type Gamma (tsnd t2) T12
+  | T_Unit : forall Gamma:context, 
+      has_type Gamma tunit TUnit
+  | T_Let : forall (Gamma:context) (x:id) (t1 t2:tm) (T1 T2:ty),
+      has_type Gamma t1 T1 ->
+      has_type (extend Gamma x T1) t2 T2 ->
+      has_type Gamma (tlet x t1 t2) T2
+  | T_Inl : forall (Gamma:context) (t1:tm) (T1 T2:ty),
+      has_type Gamma t1 T1 ->
+      has_type Gamma (tinl T2 t1) (TSum T1 T2)
+  | T_Inr : forall (Gamma:context) (t2:tm) (T1 T2:ty),
+      has_type Gamma t2 T2 ->
+      has_type Gamma (tinr T1 t2) (TSum T1 T2)
+  | T_Tcase : forall (Gamma:context) (t0 t1 t2:tm) (T T1 T2:ty) (x1 x2:id),
+      has_type Gamma t0 (TSum T1 T2) ->
+      has_type (extend Gamma x1 T1) t1 T ->
+      has_type (extend Gamma x2 T2) t2 T ->
+      has_type Gamma (tcase t0 x1 t1 x2 t2) T
+  | T_Nil : forall (Gamma:context) (T:ty),
+      has_type Gamma (tnil T) (TList T)
+  | T_Cons : forall (Gamma:context) (t1 t2:tm) (T:ty),
+      has_type Gamma t1 T ->
+      has_type Gamma t2 (TList T) ->
+      has_type Gamma (tcons t1 t2) (TList T)
+  | T_Lcase : forall (Gamma:context) (h t:id) (t1 t2 t3:tm) (T T1:ty),
+      has_type (extend (extend Gamma h T1) t (TList T)) t3 T ->
+      has_type Gamma (tlcase t1 t2 h t t3) T
+  | T_Fix : forall (Gamma:context) (T1:ty) (t1:tm),
+      has_type Gamma t1 (TArrow T1 T1) ->
+      has_type Gamma (tfix t1) T1
   .
 
 Hint Constructors has_type.
 
 Tactic Notation "has_type_cases" tactic(first) ident(c) :=
   first;
-  [ Case_aux c "T_Var" | Case_aux c "T_Abs" | Case_aux c "T_App" 
-    (* FILL IN HERE *)
+  [ Case_aux c "T_Var" | Case_aux c "T_Abs" | Case_aux c "T_App"| 
+    Case_aux c "T_Nat" | Case_aux c "T_Succ" | Case_aux c "T_Pred"| 
+    Case_aux c "T_Mult" | Case_aux c "T_If0" | Case_aux c "T_Pair"| 
+    Case_aux c "T_Fst" | Case_aux c "T_Snd" | Case_aux c "T_Unit"| 
+    Case_aux c "T_Let" | Case_aux c "T_Inl" | Case_aux c "T_Inr"| 
+    Case_aux c "T_Case" | Case_aux c "T_Nil" | Case_aux c "T_Cons"|
+    Case_aux c "T_Lcase" | Case_aux c "T_Fix" 
 ].
 
 (* ###################################################################### *)
@@ -1095,10 +1336,10 @@ Hint Extern 2 (has_type _ (tapp _ _) _) =>
 (* You'll want to uncomment the following line once 
    you've defined the [T_Lcase] constructor for the typing
    relation: *)
-(* 
+
 Hint Extern 2 (has_type _ (tlcase _ _ _ _ _) _) => 
   eapply T_Lcase; auto.
-*)
+
 Hint Extern 2 (_ = _) => compute; reflexivity.
 
 (** *** Numbers *)
@@ -1119,8 +1360,7 @@ Definition test :=
 
 (** Remove the comment braces once you've implemented enough of the
     definitions that you think this should work. *)
-
-(* 
+ 
 Example typechecks :
   has_type (@empty ty) test TNat.
 Proof.
@@ -1135,7 +1375,7 @@ Example numtest_reduces :
 Proof.
   unfold test. normalize.
 Qed.
-*)
+
 
 End Numtest.
 
@@ -1153,7 +1393,7 @@ Definition test :=
           (tnat 6))
         (tnat 7))).
 
-(* 
+
 Example typechecks :
   has_type (@empty ty) test TNat.
 Proof. unfold test. eauto 15. Qed.
@@ -1161,7 +1401,7 @@ Proof. unfold test. eauto 15. Qed.
 Example reduces :
   test ==>* tnat 6.
 Proof. unfold test. normalize. Qed.
-*)
+
 
 End Prodtest.
 
@@ -1176,7 +1416,7 @@ Definition test :=
     (tpred (tnat 6))
     (tsucc (tvar x)).
 
-(* 
+
 Example typechecks :
   has_type (@empty ty) test TNat.
 Proof. unfold test. eauto 15. Qed.
@@ -1184,7 +1424,7 @@ Proof. unfold test. eauto 15. Qed.
 Example reduces :
   test ==>* tnat 6.
 Proof. unfold test. normalize. Qed.
-*)
+
 
 End LetTest.
 
@@ -1200,8 +1440,7 @@ Definition test :=
   tcase (tinl TNat (tnat 5))
     x (tvar x)
     y (tvar y).
-
-(* 
+ 
 Example typechecks :
   has_type (@empty ty) test TNat.
 Proof. unfold test. eauto 15. Qed.
@@ -1209,7 +1448,7 @@ Proof. unfold test. eauto 15. Qed.
 Example reduces :
   test ==>* (tnat 5).
 Proof. unfold test. normalize. Qed.
-*)
+
 
 End Sumtest1.
 
@@ -1233,7 +1472,7 @@ Definition test :=
       (tapp (tvar processSum) (tinl TNat (tnat 5)))
       (tapp (tvar processSum) (tinr TNat (tnat 5)))).
 
-(* 
+
 Example typechecks :
   has_type (@empty ty) test (TProd TNat TNat).
 Proof. unfold test. eauto 15. Qed.
@@ -1241,7 +1480,6 @@ Proof. unfold test. eauto 15. Qed.
 Example reduces :
   test ==>* (tpair (tnat 5) (tnat 0)).
 Proof. unfold test. normalize. Qed.
-*)
 
 End Sumtest2.
 
@@ -1261,7 +1499,7 @@ Definition test :=
        (tnat 0)
        x y (tmult (tvar x) (tvar x))).
 
-(* 
+
 Example typechecks :
   has_type (@empty ty) test TNat.
 Proof. unfold test. eauto 20. Qed.
@@ -1269,7 +1507,7 @@ Proof. unfold test. eauto 20. Qed.
 Example reduces :
   test ==>* (tnat 25).
 Proof. unfold test. normalize. Qed.
-*)
+
 
 End ListTest.
 
@@ -1295,14 +1533,14 @@ Definition fact :=
 (** (Warning: you may be able to typecheck [fact] but still have some
     rules wrong!) *)
 
-(* 
+
 Example fact_typechecks :
   has_type (@empty ty) fact (TArrow TNat TNat).
 Proof. unfold fact. auto 10. 
 Qed.
-*)
 
-(* 
+
+(*
 Example fact_example: 
   (tapp fact (tnat 4)) ==>* (tnat 24).
 Proof. unfold fact. normalize. Qed.
@@ -1330,14 +1568,17 @@ Definition map :=
             a l (tcons (tapp (tvar g) (tvar a)) 
                          (tapp (tvar f) (tvar l))))))).
 
-(* 
+
 (* Make sure you've uncommented the last [Hint Extern] above... *)
 Example map_typechecks :
   has_type empty map 
     (TArrow (TArrow TNat TNat)
       (TArrow (TList TNat) 
         (TList TNat))).
-Proof. unfold map. auto 10. Qed.
+Proof. unfold map. apply 
+
+
+ auto 10. Qed.
 
 Example map_example :
   tapp (tapp map (tabs a TNat (tsucc (tvar a))))
