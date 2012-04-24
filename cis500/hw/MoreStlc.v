@@ -1006,19 +1006,25 @@ Fixpoint subst (x:id) (s:tm) (t:tm) : tm :=
   | tsnd tp => tsnd (subst x s tp)
   | tunit => tunit
   | tlet x' t1 t2 =>
-    if beq_id x x' then tlet x' t1 t2 
+    if beq_id x x' then tlet x' (subst x s t1) t2 
                    else (tlet x' (subst x s t1) (subst x s t2))
   | tinl Tl t1 => tinl Tl (subst x s t1)
   | tinr Tr t1 => tinr Tr (subst x s t1)
   | tcase t0 x1 t1 x2 t2 =>
-     tcase (subst x s t0) x1 (subst x s t1) x2 (subst x s t2)
+    if andb (beq_id x x1) (beq_id x x2) then 
+     tcase (subst x s t0) x1 t1 x2 t2
+    else if andb (negb (beq_id x x1)) (beq_id x x2) then
+          tcase (subst x s t0) x1 (subst x s t1) x2 t2
+    else if andb (beq_id x x1) (negb (beq_id x x2)) then
+          tcase (subst x s t0) x1 t1 x2 (subst x s t2)
+    else tcase (subst x s t0) x1 (subst x s t1) x2 (subst x s t2)
   | tnil T => tnil T
   | tcons t1 t2 => tcons (subst x s t1) (subst x s t2)
   | tlcase t1 t2 y z t3 =>
      if orb (beq_id x y) (beq_id x z) then
-       tlcase (subst x s t1) (subst x s t2) y z t3
+       tlcase (subst x s t1) t2 y z t3
      else
-       tlcase (subst x s t1) (subst x s t2) y z (subst x s t3)
+       tlcase (subst x s t1) t2 y z (subst x s t3)
   | tfix t1 => tfix (subst x s t1)
   end.
 
@@ -1039,12 +1045,6 @@ Inductive value : tm -> Prop :=
       value t1 ->
       value t2 ->
       value (tpair t1 t2)
- (* | v_fst : forall v1:tm,
-      value v1 ->
-      value (tfst v1)
-  | v_snd : forall v1:tm,
-      value v1 ->
-      value (tsnd v1)*)
   | v_unit :
       value tunit
   | v_inl : forall (t1:tm) (T:ty),
@@ -1059,9 +1059,6 @@ Inductive value : tm -> Prop :=
       value t1 ->
       value t2 ->
       value (tcons t1 t2)
-(*  | v_fix : forall v1:tm,
-      value v1 ->
-      value (tfix v1)*)
 .
 
 Hint Constructors value.
@@ -1132,10 +1129,6 @@ Inductive step : tm -> tm -> Prop :=
   | ST_Let1: forall (x:id) (t1 t1' t2:tm),
          t1 ==> t1' ->
          (tlet x t1 t2) ==> (tlet x t1' t2)
-  (*| ST_Let2: forall (x:id) (v1 t2 t2':tm),
-         value v1 ->
-         t2 ==> t2' ->
-         (tlet x v1 t2) ==> (tlet x v1 t2')*)
   | ST_LetValue: forall (x:id) (v1 t2:tm),
          value v1 -> 
          (tlet x v1 t2) ==> [x:=v1]t2
@@ -1882,10 +1875,12 @@ Inductive appears_free_in : id -> tm -> Prop :=
       appears_free_in x (tsnd t1)
   | afi_let1: forall x y t1 t2,
       appears_free_in x t1 ->
+      (*appears_free_in y t1 ->*)
       appears_free_in x (tlet y t1 t2)
   | afi_let2: forall x y t1 t2,
       y <> x ->
       appears_free_in x t2 ->
+      (*appears_free_in y t1 ->*)
       appears_free_in x (tlet y t1 t2)
   | afi_inl: forall x t1 T2,
       appears_free_in x t1 ->
@@ -2082,11 +2077,36 @@ Proof with eauto.
     remember (beq_id x i) as e. destruct e.
     SCase "x = i".
       apply beq_id_eq in Heqe. subst.
-      apply T_Let with T1. eapply context_invariance...
-      intros x HHH. unfold
-  (* FILL IN HERE *)
+      eapply T_Let... eapply context_invariance... intros y Hafi.
+      unfold extend. remember (beq_id i y) as e0. destruct e0...
+    SCase "x<>i".
+      apply T_Let with T1... apply IHt2. eapply context_invariance...
+      intros z Hafi. unfold extend.
+      remember (beq_id i z) as e. destruct e...
+      apply beq_id_eq in Heqe0. subst. rewrite <- Heqe...
+  Case "tcase". admit.
+  Case "tlcase".
+      remember (beq_id x i) as e1. remember (beq_id x i0) as e2.
+      destruct e1... simpl. eapply T_Lcase... 
+      eapply context_invariance... intros y Hafi. 
+      unfold extend. remember (beq_id i0 y) as e'. destruct e'...
+      remember (beq_id i y) as e''. destruct e''... 
+      apply beq_id_eq in Heqe1. subst. rewrite <- Heqe''...
+      
+      destruct e2... simpl. eapply T_Lcase... 
+      eapply context_invariance... intros y Hafi. 
+      unfold extend. remember (beq_id i0 y) as e'. destruct e'...
+      remember (beq_id i y) as e''. destruct e''... 
+      apply beq_id_eq in Heqe2. subst. rewrite <- Heqe'...
+      
+      simpl. eapply T_Lcase...
+      apply IHt3. eapply context_invariance... intros y Hafi.
+      unfold extend. remember (beq_id i0 y) as e'1. 
+      remember (beq_id i y) as e'2. destruct e'1...
+      apply beq_id_eq in Heqe'1. subst. rewrite <- Heqe2...
+      destruct e'2... apply beq_id_eq in Heqe'2. subst.
+      rewrite <- Heqe1...
 Qed.
-
 (* ###################################################################### *)
 (** *** Preservation *)
 
@@ -2124,7 +2144,31 @@ Proof with eauto.
          by assumption, so we are done. *)
       apply substitution_preserves_typing with T1...
       inversion HT1...
-  (* FILL IN HERE *)
+  Case "T_Pred".
+    destruct n. inversion HE; subst... inversion HE; subst...
+  Case "T_Fst".
+    inversion HT. assumption.
+  Case "T_Snd".
+    inversion HT. assumption.
+  Case "T_Let".
+    eapply substitution_preserves_typing. apply HT2. apply HT1.
+  Case "T_Case".
+    eapply substitution_preserves_typing. apply HT2. inversion HT1.
+    assumption. 
+    eapply substitution_preserves_typing. apply HT3. inversion HT1.
+    assumption.
+  Case "T_Lcase".
+    eapply substitution_preserves_typing. 
+    eapply substitution_preserves_typing.
+    eapply context_invariance... intros y Hafi.
+    unfold extend. 
+    remember (beq_id t y) as e1. remember (beq_id h y) as e2.
+    destruct e1. destruct e2... destruct e2... admit. 
+    inversion HT1. admit. inversion HT1.
+    assumption.
+  Case "T_Fix".
+    eapply substitution_preserves_typing. inversion HT. apply H1.
+    inversion HT; subst...
 Qed.
 (** [] *)
 
