@@ -1,6 +1,6 @@
 (** * Stlc: The Simply Typed Lambda-Calculus *)
 
-(* $Date: 2012-04-11 22:03:26 -0400 (Wed, 11 Apr 2012) $ *)
+(* $Date: 2012-04-18 13:00:25 -0400 (Wed, 18 Apr 2012) $ *)
 
 Require Export Types.
 
@@ -373,7 +373,17 @@ Notation "'[' x ':=' s ']' t" := (subst x s t) (at level 20).
                               t2 ==> t2'
                            ----------------                           (ST_App2)
                            v1 t2 ==> v1 t2'
-   (plus the usual rules for booleans). 
+*)
+(** ... plus the usual rules for booleans:
+                    --------------------------------                (ST_IfTrue)
+                    (if true then t1 else t2) ==> t1
+
+                    ---------------------------------              (ST_IfFalse)
+                    (if false then t1 else t2) ==> t2
+
+                              t1 ==> t1'
+         ----------------------------------------------------           (ST_If)
+         (if t1 then t2 else t3) ==> (if t1' then t2 else t3)
 *)
 
 Reserved Notation "t1 '==>' t2" (at level 40).
@@ -460,17 +470,7 @@ Lemma step_example3 :
        (tapp (tapp idBBBB idBB) idB)
   ==>* idB.
 Proof.
-  (*Use normalize. can finish all.*)
-  eapply multi_step.
-    apply ST_App1. auto.
-    simpl.
-    (* Or use apply step_example1. to end *)
-  eapply multi_step.
-    apply ST_AppAbs.
-    apply v_abs.
-  simpl.
-  apply multi_refl.
-Qed.
+  (* FILL IN HERE *) Admitted.
 (** [] *)
 
 (* ###################################################################### *)
@@ -628,20 +628,13 @@ Example typing_example_2_full :
           (tapp (tvar y) (tapp (tvar y) (tvar x)))))
     (TArrow TBool (TArrow (TArrow TBool TBool) TBool)).
 Proof.
-  apply T_Abs.
-  apply T_Abs.
-  apply T_App with (T11:=TBool).
-    apply T_Var. reflexivity.
-  apply T_App with (T11:=TBool).
-    apply T_Var. reflexivity.
-  apply T_Var. reflexivity.
-Qed.
+  (* FILL IN HERE *) Admitted.
 (** [] *)
 
 (** **** Exercise: 2 stars (typing_example_3) *)
 (** Formally prove the following typing derivation holds: *)
 (** 
-   empty |- (\x:Bool->Bool. \y:Bool->Bool. \z:Bool.
+   empty |- (\x:Bool->B. \y:Bool->Bool. \z:Bool.
                y (x z)) 
          : T.
 *)
@@ -656,14 +649,7 @@ Example typing_example_3 :
       T.
 
 Proof with auto.
-  exists (TArrow (TArrow TBool TBool) (TArrow (TArrow TBool TBool) (TArrow TBool TBool))).
-  apply T_Abs.
-  apply T_Abs.
-  apply T_Abs.
-  apply T_App with (TBool). apply T_Var...
-  apply T_App with (TBool). apply T_Var...
-  apply T_Var...  
-Qed.
+  (* FILL IN HERE *) Admitted.
 (** [] *)
 
 (** We can also show that terms are _not_ typable.  For example, let's
@@ -705,19 +691,7 @@ Example typing_nonexample_3 :
              (tapp (tvar x) (tvar x)))
           T).
 Proof.
-  intros Hc. inversion Hc.
-  inversion H. subst. clear H.
-  inversion H0. subst. clear H0.
-  inversion H5. subst. clear H5.
-  inversion H4. subst. clear H4.
-  inversion H2. subst. clear H2.
-  Case "Proof X != X -> Y".
-  rewrite H1 in H3. inversion H3.
-  induction T11. inversion H0.
-  inversion H0. apply IHT11_1. rewrite H2. assumption.
-  rewrite <- H4. rewrite H2 at 1. reflexivity.
-  rewrite <- H4. assumption.
-Qed.
+  (* FILL IN HERE *) Admitted.
 (** [] *)
 
 (** **** Exercise: 1 star, optional (typing_statements) *)
@@ -742,42 +716,127 @@ Qed.
     ones that are, give witnesses for the existentially bound
     variables.
        - [exists T,  empty |- (\y:B->B->B. \x:B, y x) : T]
-         T = (B->B->B)->(B->(B->B))
 
        - [exists T,  empty |- (\x:A->B, \y:B-->C, \z:A, y (x z)):T]
-         T = (A->B)->((B->C)->(A->C))
 
        - [exists S, exists U, exists T,  x:S, y:U |- \z:A. x (y z) : T]
-         S = B->C
-         U = A->B
-         T = A->C
 
        - [exists S, exists T,  x:S |- \y:A. x (x y) : T]
-         S = A->A
-         T = A->A
 
        - [exists S, exists U, exists T,  x:S |- x (\z:U. z x) : T]
-         S = A 
-         U = A->B
-         T = B
- 
+
 []
 *)
 
-Theorem mts1: exists T,  
-  has_type empty 
-     (tabs y (TArrow TBool (TArrow TBool TBool)) 
-       (tabs x TBool 
-         (tapp (tvar y) (tvar x)))) T.
-Proof.
-  exists (TArrow (TArrow TBool (TArrow TBool TBool)) ((TArrow TBool (TArrow TBool TBool)))).
-  apply T_Abs.
-  apply T_Abs.
-  apply T_App with (TBool). apply T_Var. reflexivity.
-  apply T_Var. reflexivity.
-Qed.
 (* ###################################################################### *)
 (** ** Properties *)
+
+(* ###################################################################### *)
+(** *** Progress *)
+
+(** The _progress_ theorem tells us that closed, well-typed
+    terms are not stuck: either a well-typed term is a value, or
+    else it can take an evaluation step.  
+*)
+
+Theorem progress : forall t T, 
+     has_type empty t T ->
+     value t \/ exists t', t ==> t'.
+
+(** _Proof_: by induction on the derivation of [|- t : T].
+
+    - The last rule of the derivation cannot be [T_Var], since a
+      variable is never well typed in an empty context.
+
+    - The [T_True], [T_False], and [T_Abs] cases are trivial, since in
+      each of these cases we know immediately that [t] is a value.
+
+    - If the last rule of the derivation was [T_App], then [t = t1
+      t2], and we know that [t1] and [t2] are also well typed in the
+      empty context; in particular, there exists a type [T2] such that
+      [|- t1 : T2 -> T] and [|- t2 : T2].  By the induction
+      hypothesis, either [t1] is a value or it can take an evaluation
+      step.
+
+        - If [t1] is a value, we now consider [t2], which by the other
+          induction hypothesis must also either be a value or take an
+          evaluation step.
+
+            - Suppose [t2] is a value.  Since [t1] is a value with an
+              arrow type, it must be a lambda abstraction; hence [t1
+              t2] can take a step by [ST_AppAbs].
+
+            - Otherwise, [t2] can take a step, and hence so can [t1
+              t2] by [ST_App2].
+
+        - If [t1] can take a step, then so can [t1 t2] by [ST_App1].
+
+    - If the last rule of the derivation was [T_If], then [t = if t1
+      then t2 else t3], where [t1] has type [Bool].  By the IH, [t1]
+      is either a value or takes a step.
+
+        - If [t1] is a value, then since it has type [Bool] it must be
+          either [true] or [false].  If it is [true], then [t] steps
+          to [t2]; otherwise it steps to [t3].
+
+        - Otherwise, [t1] takes a step, and therefore so does [t] (by
+          [ST_If]).
+
+*)
+
+Proof with eauto.
+  intros t T Ht.
+  remember (@empty ty) as Gamma.
+  has_type_cases (induction Ht) Case; subst Gamma...
+  Case "T_Var".
+    (* contradictory: variables cannot be typed in an 
+       empty context *)
+    inversion H. 
+
+  Case "T_App". 
+    (* [t] = [t1 t2].  Proceed by cases on whether [t1] is a 
+       value or steps... *)
+    right. destruct IHHt1...
+    SCase "t1 is a value".
+      destruct IHHt2...
+      SSCase "t2 is also a value".
+        (* Since [t1] is a value and has an arrow type, it
+           must be an abs. Sometimes this is proved separately 
+           and called a "canonical forms" lemma. *) 
+        inversion H; subst. exists ([x0:=t2]t)...
+        solve by inversion. solve by inversion. 
+      SSCase "t2 steps".
+        inversion H0 as [t2' Hstp]. exists (tapp t1 t2')...
+
+    SCase "t1 steps".
+      inversion H as [t1' Hstp]. exists (tapp t1' t2)...
+
+  Case "T_If".
+    right. destruct IHHt1...
+    
+    SCase "t1 is a value".
+      (* Since [t1] is a value of boolean type, it must
+         be true or false *)
+      inversion H; subst. solve by inversion.
+      SSCase "t1 = true". eauto.
+      SSCase "t1 = false". eauto.
+
+    SCase "t1 also steps".
+      inversion H as [t1' Hstp]. exists (tif t1' t2 t3)...
+Qed.
+
+(** **** Exercise: 3 stars, optional (progress_from_term_ind) *)
+(** Show that progress can also be proved by induction on terms
+    instead of induction on typing derivations. *)
+
+Theorem progress' : forall t T,
+     has_type empty t T ->
+     value t \/ exists t', t ==> t'.
+Proof.
+  intros t.
+  t_cases (induction t) Case; intros T Ht; auto.
+  (* FILL IN HERE *) Admitted.
+(** [] *)
 
 (* ###################################################################### *)
 (** *** Free Occurrences *)
@@ -885,7 +944,20 @@ Corollary typable_empty__closed : forall t T,
     has_type empty t T  ->
     closed t.
 Proof.
-  (* FILL IN HERE *) Admitted.
+  intros t T H x contra. generalize dependent T.
+  afi_cases (induction contra) Case; 
+      intros; try solve [inversion H; eauto].
+  Case "afi_var".
+      inversion H. inversion H2.
+  Case "afi_abs".
+      clear IHcontra.
+      inversion H0. subst.
+      apply free_in_context with (T:=T12) (Gamma:=extend empty y0 T11) 
+                            in contra.
+      inversion contra. apply not_eq_beq_id_false in H. 
+      apply extend_neq with (ctxt:=empty) (x2:=y0) (T:=T11) in H.
+      rewrite H in H1. inversion H1. assumption.
+Qed.
 (** [] *)
 
 (** Sometimes, when we have a proof [Gamma |- t : T], we will need to
@@ -895,10 +967,10 @@ Proof.
     that appear free in [t]. In fact, this is the only condition that
     is needed. *)
 
-Lemma context_invariance : forall Gamma Gamma' t S,
-     has_type Gamma t S  ->
+Lemma context_invariance : forall Gamma Gamma' t T,
+     has_type Gamma t T  ->
      (forall x, appears_free_in x t -> Gamma x = Gamma' x) ->
-     has_type Gamma' t S.
+     has_type Gamma' t T.
 
 (** _Proof_: By induction on the derivation of [Gamma |- t : T].
 
@@ -975,31 +1047,31 @@ Qed.
 (** _Lemma_: If [Gamma,x:U |- t : T] and [|- v : U], then [Gamma |-
     [x:=v]t : T]. *)
 
-Lemma substitution_preserves_typing : forall Gamma x U v t T,
+Lemma substitution_preserves_typing : forall Gamma x U t t' T,
      has_type (extend Gamma x U) t T ->
-     has_type empty v U   ->
-     has_type Gamma ([x:=v]t) T.
+     has_type empty t' U   ->
+     has_type Gamma ([x:=t']t) T.
 
 (** One technical subtlety in the statement of the lemma is that we
-    assign [v] the type [U] in the _empty_ context -- in other words,
-    we assume [v] is closed.  This assumption considerably simplifies
-    the [T_Abs] case of the proof (compared to assuming [Gamma |- v :
+    assign [t'] the type [U] in the _empty_ context -- in other words,
+    we assume [t'] is closed.  This assumption considerably simplifies
+    the [T_Abs] case of the proof (compared to assuming [Gamma |- t' :
     U], which would be the other reasonable assumption at this point)
-    because the context invariance lemma then tells us that [v] has
+    because the context invariance lemma then tells us that [t'] has
     type [U] in any context at all -- we don't have to worry about
-    free variables in [v] clashing with the variable being introduced
+    free variables in [t'] clashing with the variable being introduced
     into the context by [T_Abs].
 
     _Proof_: We prove, by induction on [t], that, for all [T] and
-    [Gamma], if [Gamma,x:U |- t : T] and [|- v : U], then [Gamma |-
-    [x:=v]t : T].
+    [Gamma], if [Gamma,x:U |- t : T] and [|- t' : U], then [Gamma |-
+    [x:=t']t : T].
  
       - If [t] is a variable, there are two cases to consider, depending
         on whether [t] is [x] or some other variable.
 
           - If [t = x], then from the fact that [Gamma, x:U |- x : T] we
-            conclude that [U = T].  We must show that [[x:=v]x = v] has
-            type [T] under [Gamma], given the assumption that [v] has
+            conclude that [U = T].  We must show that [[x:=t']x = t'] has
+            type [T] under [Gamma], given the assumption that [t'] has
             type [U = T] under the empty context.  This follows from
             context invariance: if a closed term has type [T] in the
             empty context, it has that type in any context.
@@ -1010,14 +1082,13 @@ Lemma substitution_preserves_typing : forall Gamma x U v t T,
 
       - If [t] is an abstraction [\y:T11. t12], then the IH tells us,
         for all [Gamma'] and [T'], that if [Gamma',x:U |- t12 : T']
-        and [|- v : U], then [Gamma' |- [x:=v]t12 : T'].  In
-        particular, if [Gamma,y:T11,x:U |- t12 : T12] and [|- v : U],
-        then [Gamma,y:T11 |- [x:=v]t12 : T12].  There are again two
-        cases to consider, depending on whether [x] and [y] are the
-        same variable name.
+        and [|- t' : U], then [Gamma' |- [x:=t']t12 : T'].
+
+        The substitution in the conclusion behaves differently,
+        depending on whether [x] and [y] are the same variable name.
 
         First, suppose [x = y].  Then, by the definition of
-        substitution, [[x:=v]t = t], so we just need to show [Gamma |-
+        substitution, [[x:=t']t = t], so we just need to show [Gamma |-
         t : T].  But we know [Gamma,x:U |- t : T], and since the
         variable [y] does not appear free in [\y:T11. t12], the
         context invariance lemma yields [Gamma |- t : T].
@@ -1025,10 +1096,10 @@ Lemma substitution_preserves_typing : forall Gamma x U v t T,
         Second, suppose [x <> y].  We know [Gamma,x:U,y:T11 |- t12 :
         T12] by inversion of the typing relation, and [Gamma,y:T11,x:U
         |- t12 : T12] follows from this by the context invariance
-        lemma, so the IH applies, giving us [Gamma,y:T11 |- [x:=v]t12 :
-        T12].  By [T_Abs], [Gamma |- \y:T11. [x:=v]t12 : T11->T12], and
+        lemma, so the IH applies, giving us [Gamma,y:T11 |- [x:=t']t12 :
+        T12].  By [T_Abs], [Gamma |- \y:T11. [x:=t']t12 : T11->T12], and
         by the definition of substitution (noting that [x <> y]),
-        [Gamma |- \y:T11. [x:=v]t12 : T11->T12], as required. 
+        [Gamma |- \y:T11. [x:=t']t12 : T11->T12] as required. 
 
       - If [t] is an application [t1 t2], the result follows
         straightforwardly from the definition of substitution and the
@@ -1048,7 +1119,7 @@ Lemma substitution_preserves_typing : forall Gamma x U v t T,
     hand, _is_ completely generic. *)
 
 Proof with eauto.
-  intros Gamma x U v t T Ht Hv.
+  intros Gamma x U t t' T Ht Ht'.
   generalize dependent Gamma. generalize dependent T. 
   t_cases (induction t) Case; intros T Gamma H;
     (* in each case, we'll want to get at the derivation of H *)
@@ -1157,116 +1228,32 @@ Qed.
     t' T], then [has_type t T]?  If so, prove it.  If not, give a
     counter-example.
 
-(* FILL IN HERE *)
+    [tif ttrue ttrue tzero] is a counter-example, because it steps
+    to [ttrue] which has type [Bool], but itself is not well-typed.
 []
 *)
 
+
 (* ###################################################################### *)
-(** *** Progress *)
+(** *** Type Soundness *)
 
-(** Finally, the _progress_ theorem tells us that closed, well-typed
-    terms are not stuck: either a well-typed term is a value, or
-    else it can take an evaluation step.  
-*)
+(** **** Exercise: 2 stars, optional (type_soundness) *)
 
-Theorem progress : forall t T, 
-     has_type empty t T ->
-     value t \/ exists t', t ==> t'.
+(** Put progress and preservation together and show that a well-typed
+    term can _never_ reach a stuck state.  *)
 
-(** _Proof_: by induction on the derivation of [|- t : T].
+Definition stuck (t:tm) : Prop :=
+  (normal_form step) t /\ ~ value t.
 
-    - The last rule of the derivation cannot be [T_Var], since a
-      variable is never well typed in an empty context.
-
-    - The [T_True], [T_False], and [T_Abs] cases are trivial, since in
-      each of these cases we know immediately that [t] is a value.
-
-    - If the last rule of the derivation was [T_App], then [t = t1
-      t2], and we know that [t1] and [t2] are also well typed in the
-      empty context; in particular, there exists a type [T2] such that
-      [|- t1 : T2 -> T] and [|- t2 : T2].  By the induction
-      hypothesis, either [t1] is a value or it can take an evaluation
-      step.
-
-        - If [t1] is a value, we now consider [t2], which by the other
-          induction hypothesis must also either be a value or take an
-          evaluation step.
-
-            - Suppose [t2] is a value.  Since [t1] is a value with an
-              arrow type, it must be a lambda abstraction; hence [t1
-              t2] can take a step by [ST_AppAbs].
-
-            - Otherwise, [t2] can take a step, and hence so can [t1
-              t2] by [ST_App2].
-
-        - If [t1] can take a step, then so can [t1 t2] by [ST_App1].
-
-    - If the last rule of the derivation was [T_If], then [t = if t1
-      then t2 else t3], where [t1] has type [Bool].  By the IH, [t1]
-      is either a value or takes a step.
-
-        - If [t1] is a value, then since it has type [Bool] it must be
-          either [true] or [false].  If it is [true], then [t] steps
-          to [t2]; otherwise it steps to [t3].
-
-        - Otherwise, [t1] takes a step, and therefore so does [t] (by
-          [ST_If]).
-
-*)
-
-Proof with eauto.
-  intros t T Ht.
-  remember (@empty ty) as Gamma.
-  has_type_cases (induction Ht) Case; subst Gamma...
-  Case "T_Var".
-    (* contradictory: variables cannot be typed in an 
-       empty context *)
-    inversion H. 
-
-  Case "T_App". 
-    (* [t] = [t1 t2].  Proceed by cases on whether [t1] is a 
-       value or steps... *)
-    right. destruct IHHt1...
-    SCase "t1 is a value".
-      destruct IHHt2...
-      SSCase "t2 is also a value".
-        (* Since [t1] is a value and has an arrow type, it
-           must be an abs. Sometimes this is proved separately 
-           and called a "canonical forms" lemma. *) 
-        inversion H; subst. exists ([x0:=t2]t)...
-        solve by inversion. solve by inversion. 
-      SSCase "t2 steps".
-        inversion H0 as [t2' Hstp]. exists (tapp t1 t2')...
-
-    SCase "t1 steps".
-      inversion H as [t1' Hstp]. exists (tapp t1' t2)...
-
-  Case "T_If".
-    right. destruct IHHt1...
-    
-    SCase "t1 is a value".
-      (* Since [t1] is a value of boolean type, it must
-         be true or false *)
-      inversion H; subst. solve by inversion.
-      SSCase "t1 = true". eauto.
-      SSCase "t1 = false". eauto.
-
-    SCase "t1 also steps".
-      inversion H as [t1' Hstp]. exists (tif t1' t2 t3)...
-Qed.
-
-(** **** Exercise: 3 stars, optional (progress_from_term_ind) *)
-(** Show that progress can also be proved by induction on terms
-    instead of types. *)
-
-Theorem progress' : forall t T,
-     has_type empty t T ->
-     value t \/ exists t', t ==> t'.
+Corollary soundness : forall t t' T,
+  has_type empty t T -> 
+  t ==>* t' ->
+  ~(stuck t').
 Proof.
-  intros t.
-  t_cases (induction t) Case; intros T Ht; auto.
+  intros t t' T Hhas_type Hmulti. unfold stuck.
+  intros [Hnf Hnot_val]. unfold normal_form in Hnf.
+  induction Hmulti.
   (* FILL IN HERE *) Admitted.
-(** [] *)
 
 (* ###################################################################### *)
 (** *** Uniqueness of Types *)
@@ -1277,7 +1264,24 @@ Proof.
     type. *)
 (** Formalize this statement and prove it. *)
 
-(* FILL IN HERE *)
+Theorem types_unique: forall (t:tm) (Gamma:context) (T1 T2:ty),
+    has_type Gamma t T1 -> 
+    has_type Gamma t T2 ->
+    T1 = T2.
+Proof.
+  intros t Gamma T1 T2 H1. generalize dependent T2.
+  has_type_cases (induction H1) Case; 
+         intros; try (inversion H; reflexivity).
+  Case "T_Var".
+      inversion H0. rewrite H in H3. inversion H3. reflexivity.
+  Case "T_Abs".
+      inversion H. subst. apply IHhas_type in H6. subst. reflexivity.
+  Case "T_App".
+      inversion H. subst. apply IHhas_type1 in H3. inversion H3. 
+      reflexivity.
+  Case "T_If".
+      inversion H. apply IHhas_type2 in H6. assumption.
+Qed.
 (** [] *)
 
 (* ###################################################################### *)
@@ -1286,7 +1290,14 @@ Proof.
 (** **** Exercise: 1 star (progress_preservation_statement) *)
 (** Without peeking, write down the progress and preservation
     theorems for the simply typed lambda-calculus. *)
-(** [] *)
+(** 
+   Progress: if a closed term [t] has type [T], it either is a value,
+             or it can step to another closed term [t'].
+
+   Perservation: if a closed term [t] has type [T], and it can step to
+                 another closed term [t'], then [t'] also has type [T].
+
+ *)
 
 (** **** Exercise: 2 stars, optional (stlc_variation1) *)
 (** Suppose we add the following new rule to the evaluation
@@ -1313,6 +1324,11 @@ Proof.
     exercise become false in the absence of this rule? For each
     that becomes false, give a counterexample.
 
+    Progress is false. 
+
+    Counter-example: [(tif ttrue \y:Nat.y \y:Nat.y+1) 5] has type
+    [Nat], but it cannot step, and it is not a value.
+    
 []
 *)
 
@@ -1320,7 +1336,7 @@ End STLC.
 
 (* ###################################################################### *)
 (* ###################################################################### *)
-(** * Exercise: STLC with Arithmetic *) 
+(** * Optional Exercise: STLC with Arithmetic *) 
 
 (** To see how the STLC might function as the core of a real
     programming language, let's extend it with a concrete base
@@ -1359,7 +1375,7 @@ Tactic Notation "t_cases" tactic(first) ident(c) :=
   | Case_aux c "tsucc" | Case_aux c "tpred"
   | Case_aux c "tmult" | Case_aux c "tif0" ].
 
-(** **** Exercise: 4 stars, recommended (stlc_arith) *)
+(** **** Exercise: 4 stars, optional (stlc_arith) *)
 (** Finish formalizing the definition and properties of the STLC extended
     with arithmetic.  Specifically:
 

@@ -1155,7 +1155,9 @@ Inductive step : tm -> tm -> Prop :=
   | ST_LcaseNil: forall (T:ty) (t2 t3:tm) (xh xt:id),
          (tlcase (tnil T) t2 xh xt t3) ==> t2
   | ST_LcaseCons: forall (vh vt t2 t3:tm) (xh xt:id),
-         (tlcase (tcons vh vt) t2 xh xt t3) ==> [xt:=vt]([xh:=vh]t3)
+         value vh ->
+         value vt ->
+         (tlcase (tcons vh vt) t2 xh xt t3) ==> [xh:=vh]([xt:=vt]t3)
   | ST_Fix1: forall t1 t1':tm,
          t1 ==> t1' ->
          (tfix t1) ==> (tfix t1')
@@ -1811,7 +1813,7 @@ Proof with eauto.
     SCase "t1 is a value".
       right. inversion H; subst; try (solve by inversion).
         exists t2...
-        exists ([t:=t4]([h:=t0]t3))...
+        exists ([h:=t0]([t:=t4]t3))...
     SCase "t1 steps".
       right. inversion H. exists (tlcase x t2 h t t3)...
   Case "T_Fix".
@@ -2188,12 +2190,10 @@ Proof with eauto.
     eapply substitution_preserves_typing. apply HT3. inversion HT1.
     assumption.
   Case "T_Lcase".
-    inversion HT1; subst...
-    eapply substitution_preserves_typing.
-    eapply substitution_preserves_typing.
-    eapply context_invariance... intros y Hafi.
-    unfold extend. remember (beq_id t y) as e1. 
-    remember (beq_id h y) as e2. destruct e1... destruct e2...
+     apply substitution_preserves_typing with T1.
+     apply substitution_preserves_typing with (TList T1).
+     apply HT3.
+     inversion HT1... inversion HT1...
   Case "T_Fix".
     eapply substitution_preserves_typing. inversion HT. apply H1.
     inversion HT; subst...
